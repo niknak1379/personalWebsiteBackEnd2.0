@@ -12,7 +12,7 @@ console.log(hi)
 
 
 //Does not support no tags at the moment, could just do an all tag and cheese it
-async function getProjects(searchQueryStr, statusStr, tagsArray) {
+export async function getProjects(searchQueryStr, statusStr, tagsArray) {
     if (tagsArray.length == 0) {
         console.log('hi')
     }
@@ -24,11 +24,11 @@ async function getProjects(searchQueryStr, statusStr, tagsArray) {
         AND Projects.name LIKE ?
         AND Projects.status LIKE ?
         `, [tagsArray, `%${searchQueryStr}%`, `%${statusStr}%`])
-    console.log(hi)
+    return hi[0]
 }
 
 getProjects("nik", "", ["PYTHON"])
-async function insertProject(projectObject, tagsObject){
+export async function insertProject(projectObject, tagsObject){
     let name = projectObject.name
     let description = projectObject.description
     let status = projectObject.description
