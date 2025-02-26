@@ -53,7 +53,15 @@ BEGIN
         SIGNAL SQLSTATE '45000' 
         SET MESSAGE_TEXT = 'Invalid status';  
     END IF;
-END$$
+END $$
+
+CREATE TRIGGER defaultTag
+AFTER INSERT ON Projects
+FOR EACH ROW
+BEGIN
+    INSERT INTO ProjectTags
+    VALUES(new.name, 'ALL');
+END $$
 DELIMITER ;
 
 INSERT INTO Projects VALUES
