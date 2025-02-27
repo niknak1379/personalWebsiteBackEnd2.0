@@ -48,22 +48,21 @@ export async function getProjects(searchQueryStr, statusStr, tagsArray) {
 export async function insertProject(projectObject, tagsObject){
     let name = projectObject.name
     let description = projectObject.description
-    let status = projectObject.description
+    let status = projectObject.status
     let pictureURL = projectObject.pictureURL
     let githubURL = projectObject.githubURL
-    let deploymentURL = deploymentURL.githubURL
-
+    let deploymentURL = projectObject.githubURL
+    console.log(name, description, status, pictureURL, githubURL, deploymentURL)
     let insertProject = await DB.query(`
-        INSERT INTO Projects (name, description, status, pictureURL, githubURL, deploymentURL)
-        VALUES(?, ?, ?, ?, ?, ?)
-        INSERT INTO Projects`, [name, description, status, pictureURL, githubURL, deploymentURL])
-    console.log(insertProject)
+        INSERT INTO Projects VALUES
+        (?, ?, ?, ?, ?, ?)`, [name, description, status, pictureURL, githubURL, deploymentURL])
+    console.log(insertProject[0])
     for (let i = 0; i < tagsObject.length; i++) {
         let tagQuery = await DB.query(`
             INSERT INTO ProjectTags(name, tag)
             VALUES(?, ?)
             `, [name, tagsObject[i]])
-        console.log(tagQuery)
+        console.log(tagQuery[0])
     }
 }
 
