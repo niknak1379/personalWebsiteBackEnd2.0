@@ -1,4 +1,3 @@
-CREATE DATABASE Projects;
 USE Projects;
 
 CREATE TABLE Status (
@@ -65,9 +64,31 @@ END $$
 DELIMITER ;
 
 INSERT INTO Projects VALUES
-('nik', 'longs d fs sdj ds ', 'Complete', 'pic url', 'git url', 'dep url');
+("Nikan's Personal Website V1", "My very own personal website, Showcasing my Projects and interests. Deployed on Vercel", 'Complete', 'https://www.nikanostovan.dev/Assets/App/Cards/ProjectPics/personalSS.avif', 'https://github.com/niknak1379/personalWebsite', 'https://nikanostovan.dev/'),
+("Persian American Student Association's Website", "Website Showcasing the student organization, its members, events and projects", 'Complete', 'https://www.nikanostovan.dev/Assets/App/Cards/ProjectPics/PASA-SS.avif', 'https://github.com/niknak1379/pasa-website', 'https://pasa.org/'),
+("Personal Home Lab", "Features currently include: PiHole for network wide adblock, Home-Assistant for IoT management", 'Complete', 'https://www.nikanostovan.dev/Assets/App/Cards/ProjectPics/PASA-SS.avif', 'https://github.com/niknak1379/pasa-website', 'https://pasa.org/'),
+("Nikan's Personal Website V2", "My very own personal website, Showcasing my Projects and interests. Deployed on AWS, using more sophisticated networking approaches.", 'In Progress', 'https://www.nikanostovan.dev/Assets/App/Cards/ProjectPics/personalSS.avif', 'https://github.com/niknak1379/personalWebsite2.0', 'https://nikanostovan.dev/');
+
 
 INSERT INTO ProjectTags(name, tag) VALUES 
-('nik', "PYTHON"),
-('nik', "WEBDEV");
+("Nikan's Personal Website V1", "Javascript"),
+("Nikan's Personal Website V1", "FrontEnd");
 
+INSERT INTO ProjectTags(name, tag) VALUES 
+("Nikan's Personal Website V2", "Javascript"),
+("Nikan's Personal Website V2", "FrontEnd"),
+("Nikan's Personal Website V2", "BackEnd"),
+("Nikan's Personal Website V2", "MySQL"),
+("Nikan's Personal Website V2", "AWS"),
+("Nikan's Personal Website V2", "Networking");
+
+INSERT INTO ProjectTags(name, tag) VALUES 
+("Persian American Student Association's Website", "React"),
+("Persian American Student Association's Website", "Tailwind"),
+("Persian American Student Association's Website", "FrontEnd");
+
+INSERT INTO ProjectTags(name, tag) VALUES 
+("Personal Home Lab", "Raspberry-Pi"),
+("Personal Home Lab", "Linux"),
+("Personal Home Lab", "IT"),
+("Personal Home Lab", "Networking");
