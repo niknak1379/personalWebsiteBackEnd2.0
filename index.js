@@ -3,7 +3,7 @@ import {getProjects, insertProject} from './database.js'
 const app = express()
 app.use(express.json())
 
-app.get('/:name/:description/:tags', async (req, res) => {
+app.get('/:name/:description/:tags/:numberRequested', async (req, res) => {
     console.log(req.params)
     //send in space for an empty paramter
     if (req.params.name == ' '){
@@ -20,7 +20,7 @@ app.get('/:name/:description/:tags', async (req, res) => {
         req.params.tags = req.params.tags.split('-')
     }
     console.log(req.params)
-    const projects = await getProjects(`${req.params.name}`, `${req.params.description}`, req.params.tags)
+    const projects = await getProjects(`${req.params.name}`, `${req.params.description}`, req.params.tags, req.params.numberRequested)
     console.log(projects)
     res.send(projects)
 })
