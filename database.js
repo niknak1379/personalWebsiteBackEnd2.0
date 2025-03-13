@@ -15,7 +15,7 @@ const DB = mysql.createPool({
 //Doest return duplicates atm, should change that.
 //could make the tags not show on the list page of the projects but on the dedicated
 //page of each project instead.
-export async function getProjects(searchQueryStr, statusStr, tagsArray) {
+export async function getProjects(searchQueryStr, statusStr, tagsArray, entriesRequested) {
     if (tagsArray.length == 0) {
         //console.log('hi')
     }
@@ -40,6 +40,10 @@ export async function getProjects(searchQueryStr, statusStr, tagsArray) {
         set.add(queryWithDuplicates[0][i].name)
         returnList.push(queryWithDuplicates[0][i])
     }
+    if (entriesRequested <= 0){
+        entriesRequested = returnList.length
+    } 
+    returnList.length = Math.min(returnList.length, entriesRequested)
     
     return returnList
 }
