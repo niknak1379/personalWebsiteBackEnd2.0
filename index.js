@@ -1,16 +1,19 @@
 import express from 'express'
 import {getProjects, insertProject} from './database.js'
+import cors from 'cors'
 const app = express()
-app.use(express.json())
 
-app.get('/:name/:description/:tags/:numberRequested', async (req, res) => {
+app.use(express.json())
+app.use(cors());
+
+app.get('/:name/:status/:tags/:numberRequested', async (req, res) => {
     console.log(req.params)
     //send in space for an empty paramter
     if (req.params.name == ' '){
         req.params.name = ''
     }
-    if (req.params.description == ' '){
-        req.params.description = ''
+    if (req.params.status == ' '){
+        req.params.status = ''
     }
     //send in space for an empty tag
     if (req.params.tags == ' ') {
@@ -20,7 +23,7 @@ app.get('/:name/:description/:tags/:numberRequested', async (req, res) => {
         req.params.tags = req.params.tags.split('-')
     }
     console.log(req.params)
-    const projects = await getProjects(`${req.params.name}`, `${req.params.description}`, req.params.tags, req.params.numberRequested)
+    const projects = await getProjects(`${req.params.name}`, `${req.params.status}`, req.params.tags, req.params.numberRequested)
     console.log(projects)
     res.send(projects)
 })
