@@ -48,6 +48,18 @@ export async function getProjects(searchQueryStr, statusStr, tagsArray, entriesR
     return returnList
 }
 
+//returns all tags and their frequencies
+export async function getAllTags(){
+    let query = await DB.query(`
+        SELECT tag, COUNT(*) AS Frequency
+        FROM ProjectTags
+        GROUP BY tag
+        ORDER BY Frequency DESC;
+        `, [])
+    return query[0]
+}
+
+console.log(h)
 //getProjects("nik", "", ["PYTHON", "WEBDEV"])
 export async function insertProject(projectObject, tagsObject){
     let name = projectObject.name
