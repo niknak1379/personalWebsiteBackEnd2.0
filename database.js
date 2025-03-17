@@ -59,7 +59,6 @@ export async function getAllTags(){
     return query[0]
 }
 
-console.log(h)
 //getProjects("nik", "", ["PYTHON", "WEBDEV"])
 export async function insertProject(projectObject, tagsObject){
     let name = projectObject.name
