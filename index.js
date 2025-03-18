@@ -1,5 +1,5 @@
 import express from 'express'
-import {getAllTags, getProjects, insertProject} from './database.js'
+import {getAllStatus, getAllTags, getProjects, insertProject} from './database.js'
 import cors from 'cors'
 const app = express()
 
@@ -29,7 +29,13 @@ app.get('/:name/:status/:tags/:numberRequested', async (req, res) => {
 })
 app.get('/tags', async (req, res) => {
     const tags = await getAllTags()
+    console.log(tags)
     res.send(tags)
+})
+app.get('/status', async(req, res) => {
+    const status = await getAllStatus()
+    console.log(status)
+    res.send(status)
 })
 /*
 post data expected format

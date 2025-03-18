@@ -26,7 +26,9 @@ export async function getProjects(searchQueryStr, statusStr, tagsArray, entriesR
         WHERE ProjectTags.tag IN (?)
         AND Projects.name LIKE ?
         AND Projects.status LIKE ?
-        `, [tagsArray, `%${searchQueryStr}%`, `%${statusStr}%`])
+        GROUP BY Projects.name
+        HAVING COUNT(DISTINCT ProjectTags.tag) = ?
+        `, [tagsArray, `%${searchQueryStr}%`, `%${statusStr}%`, tagsArray.length])
 
     //handle duplicates
     let set = new Set()
@@ -56,6 +58,15 @@ export async function getAllTags(){
         GROUP BY tag
         ORDER BY Frequency DESC;
         `, [])
+    return query[0]
+}
+export async function getAllStatus(){
+    let query = await DB.query(`
+        SELECT status, COUNT(*) AS Frequency
+        FROM Projects
+        GROUP BY status
+        `
+    )
     return query[0]
 }
 
