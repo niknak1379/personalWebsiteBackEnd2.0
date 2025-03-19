@@ -15,12 +15,8 @@ const DB = mysql.createPool({
 //Doest return duplicates atm, should change that.
 //could make the tags not show on the list page of the projects but on the dedicated
 //page of each project instead.
-export async function getProjects(searchQueryStr, statusStr, tagsArray, entriesRequested) {
-    if (tagsArray.length == 0) {
-        //console.log('hi')
-    }
-   
-    let queryWithDuplicates = await DB.query(`
+
+/*     let queryWithDuplicates = await DB.query(`
         SELECT * FROM Projects 
         JOIN ProjectTags ON Projects.name = ProjectTags.name
         WHERE ProjectTags.tag IN (?)
@@ -28,7 +24,22 @@ export async function getProjects(searchQueryStr, statusStr, tagsArray, entriesR
         AND Projects.status LIKE ?
         GROUP BY Projects.name
         HAVING COUNT(DISTINCT ProjectTags.tag) = ?
-        `, [tagsArray, `%${searchQueryStr}%`, `%${statusStr}%`, tagsArray.length])
+        `, [tagsArray, `%${searchQueryStr}%`, `%${statusStr}%`, tagsArray.length]) */
+export async function getProjects(searchQueryStr, statusArr, tagsArray, entriesRequested) {
+    if (tagsArray.length == 0) {
+        //console.log('hi')
+    }
+    
+    let queryWithDuplicates = await DB.query(`
+        SELECT * FROM Projects 
+        JOIN ProjectTags ON Projects.name = ProjectTags.name
+        WHERE ProjectTags.tag IN (?)
+        AND Projects.name LIKE ?
+        AND Projects.status IN (?)
+        GROUP BY Projects.name
+        HAVING COUNT(DISTINCT ProjectTags.tag) = ?
+        `, [tagsArray, `%${searchQueryStr}%`, statusArr, tagsArray.length])
+    
 
     //handle duplicates
     let set = new Set()
@@ -49,6 +60,8 @@ export async function getProjects(searchQueryStr, statusStr, tagsArray, entriesR
     
     return returnList
 }
+let h = await getProjects('', ["Complete", "In Progress"], ["ALL"], 10)
+console.log(h)
 
 //returns all tags and their frequencies
 export async function getAllTags(){
@@ -69,6 +82,7 @@ export async function getAllStatus(){
     )
     return query[0]
 }
+
 
 //getProjects("nik", "", ["PYTHON", "WEBDEV"])
 export async function insertProject(projectObject, tagsObject){
