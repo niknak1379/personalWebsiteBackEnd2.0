@@ -6,14 +6,16 @@ const app = express()
 app.use(express.json())
 app.use(cors());
 
-app.get('/:name/:status/:tags/:numberRequested', async (req, res) => {
-    console.log(req.params)
+app.get('/:name/:status/:tags/:numberRequested', async (req, res) => {                  
     //send in space for an empty paramter
     if (req.params.name == ' '){
         req.params.name = ''
     }
-    if (req.params.status == ' '){
-        req.params.status = ''
+    if (req.params.status == ' ') {
+        req.params.status = ["In Progress", "Complete", "To Be Started"]
+    }
+    else {
+        req.params.status = req.params.status.split('-')
     }
     //send in space for an empty tag
     if (req.params.tags == ' ') {
@@ -23,7 +25,7 @@ app.get('/:name/:status/:tags/:numberRequested', async (req, res) => {
         req.params.tags = req.params.tags.split('-')
     }
     console.log(req.params)
-    const projects = await getProjects(`${req.params.name}`, `${req.params.status}`, req.params.tags, req.params.numberRequested)
+    const projects = await getProjects(`${req.params.name}`, req.params.status, req.params.tags, req.params.numberRequested)
     console.log(projects)
     res.send(projects)
 })
