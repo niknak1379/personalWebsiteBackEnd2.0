@@ -6,6 +6,19 @@ const app = express()
 app.use(express.json())
 app.use(cors());
 
+/*
+expected returned data format, array of JSON objects in the following format
+   [
+    {
+      "name": "nik",
+      "description": "longs d fs sdj ds ",
+      "status": "Complete",
+      "pictureURL": "pic url",
+      "githubURL": "git url",
+      "deploymentURL": "dep url",
+    }
+    ]
+*/
 app.get('/:name/:status/:tags/:numberRequested', async (req, res) => {                  
     //send in space for an empty paramter
     if (req.params.name == ' '){
@@ -29,16 +42,36 @@ app.get('/:name/:status/:tags/:numberRequested', async (req, res) => {
     console.log(projects)
     res.send(projects)
 })
+/*
+expected returned data format, array of JSON objects in the following format
+   [
+    {
+        "tag": 'tagName',
+        "frequency": '1'
+    }
+    ]
+*/
 app.get('/tags', async (req, res) => {
     const tags = await getAllTags()
     console.log(tags)
     res.send(tags)
 })
+/*
+expected returned data format, array of JSON objects in the following format
+   [
+    {
+        "status": 'statusName',
+        "frequency": '1'
+    }
+    ]
+*/
 app.get('/status', async(req, res) => {
     const status = await getAllStatus()
     console.log(status)
     res.send(status)
 })
+
+
 /*
 post data expected format
    { 

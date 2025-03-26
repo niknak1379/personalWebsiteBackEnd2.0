@@ -31,7 +31,7 @@ export async function getProjects(searchQueryStr, statusArr, tagsArray, entriesR
     }
     
     let queryWithDuplicates = await DB.query(`
-        SELECT * FROM Projects 
+        SELECT Projects.name, description, status, pictureURL, githubURL, deploymentURL FROM Projects 
         JOIN ProjectTags ON Projects.name = ProjectTags.name
         WHERE ProjectTags.tag IN (?)
         AND Projects.name LIKE ?
@@ -60,8 +60,6 @@ export async function getProjects(searchQueryStr, statusArr, tagsArray, entriesR
     
     return returnList
 }
-let h = await getProjects('', ["Complete", "In Progress"], ["ALL"], 10)
-console.log(h)
 
 //returns all tags and their frequencies
 export async function getAllTags(){
@@ -81,6 +79,27 @@ export async function getAllStatus(){
         `
     )
     return query[0]
+}
+
+export async function getProjectDetails(projectName){
+    let projectQuery = await DB.query(`
+        SELECT longDescription, status, githubURL, deploymentURL, pictureURL, carouselImage_1, carouselImage_2, carouselImage_3
+        FROM Projects
+        WHERE Projects.name = ?
+        `, [projectName])
+    console.log(projectQuery[0])
+    let tagQuery = await DB.query(`
+        SELECT tag From ProjectTags
+        WHERE name = ?
+        `, [projectName])
+    console.log(tagQuery[0])
+    let tagsArray = []
+    tagQuery[0].forEach(item => {
+        tagsArray.push(item.tag)
+    })
+    console.log(tagsArray)
+    projectQuery[0][0].tags = tagsArray
+    return projectQuery[0]
 }
 
 
