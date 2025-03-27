@@ -1,5 +1,5 @@
 import express from 'express'
-import {getAllStatus, getAllTags, getProjects, insertProject} from './database.js'
+import {getAllStatus, getAllTags, getProjects, insertProject, getProjectDetails} from './database.js'
 import cors from 'cors'
 const app = express()
 
@@ -41,6 +41,12 @@ app.get('/:name/:status/:tags/:numberRequested', async (req, res) => {
     const projects = await getProjects(`${req.params.name}`, req.params.status, req.params.tags, req.params.numberRequested)
     console.log(projects)
     res.send(projects)
+})
+
+app.get('/projectDetails/:projectName', async (req, res) => {
+    const projectDetails = await getProjectDetails(req.params.projectName)
+    console.log(projectDetails)
+    res.send(projectDetails)
 })
 /*
 expected returned data format, array of JSON objects in the following format
