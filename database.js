@@ -83,7 +83,9 @@ export async function getAllStatus(){
 
 export async function getProjectDetails(projectName){
     let projectQuery = await DB.query(`
-        SELECT longDescription, status, githubURL, deploymentURL, pictureURL, carouselImage_1, carouselImage_2, carouselImage_3
+        SELECT longDescription, status, githubURL, 
+        deploymentURL, pictureURL, carouselImage_1, 
+        carouselImage_2, carouselImage_3, obsidianURL
         FROM Projects
         WHERE Projects.name = ?
         `, [projectName])
@@ -99,7 +101,7 @@ export async function getProjectDetails(projectName){
     })
     console.log(tagsArray)
     projectQuery[0][0].tags = tagsArray
-    return projectQuery[0]
+    return projectQuery[0][0]
 }
 
 
