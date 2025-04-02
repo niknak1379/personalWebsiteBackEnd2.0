@@ -9,6 +9,28 @@ const DB = mysql.createPool({
     database: process.env.MYSQL_DATABASE
 }).promise()
 
+export async function validateLogin(user){
+    let query = await DB.query(`
+        SELECT * FROM Users
+        WHERE Users.name = ?`, [user])
+    return query[0][0]
+}
+export async function getRefreshToken(user){
+    let query = await DB.query(`
+        SELECT refreshToken FROM Users
+        WHERE name = ?`, [user])
+    console.log(query)
+    return query[0][0]
+}
+
+export async function updateRefreshToken(user, value){
+    let query = await DB.query(`
+        UPDATE Users
+        SET refreshToken = ?
+        WHERE Users.name = ?`, [value, user])
+    console.log(query)
+    return query[0]
+}
 
 
 //Does not support no tags at the moment, could just do an all tag and cheese it
