@@ -10,6 +10,7 @@ const DB = mysql.createPool({
 }).promise()
 
 export async function validateLogin(user){
+    console.log('from validate', user)
     let query = await DB.query(`
         SELECT * FROM Users
         WHERE Users.name = ?`, [user])
@@ -19,7 +20,6 @@ export async function getRefreshToken(user){
     let query = await DB.query(`
         SELECT refreshToken FROM Users
         WHERE name = ?`, [user])
-    console.log(query)
     return query[0][0]
 }
 
@@ -28,7 +28,6 @@ export async function updateRefreshToken(user, value){
         UPDATE Users
         SET refreshToken = ?
         WHERE Users.name = ?`, [value, user])
-    console.log(query)
     return query[0]
 }
 

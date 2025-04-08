@@ -6,10 +6,17 @@ import cors from 'cors'
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import cookieParser from 'cookie-parser'
-const app = express()
+import auth from './Routes/authentication.js'
 
+const app = express()
+app.use('/', auth)
 app.use(express.json())
-app.use(cors());
+
+var corsOptions = {
+    origin: ['http://localhost:3000', 'http://localhost:80'],
+    credentials: true };
+app.use(cors(corsOptions));
+
 app.use(cookieParser())
 app.use((err, req, res, next) => {
     console.error(err.stack)
@@ -111,82 +118,9 @@ app.post('/',  (req, res) => {
     res.send(req.body) */
 })
 
-//used once to generate the user hashed password
-/* app.get('/hash', async(req, res) => {
-    let hash = await bcrypt.hash('', 10)
-    console.log(hash)
-    let r = await bcrypt.compare('', hash)
-    res.send(r)
-})
- */
 
 
-
-//sends a json in the format {accessToken: value} if everything is valid
-app.post('/login', async (req, res) => {
-    let {email, password} = req.body
-    let hash = await validateLogin(email)
-    hash = hash.password
-    let validation = await bcrypt.compare(password, hash)
-
-    if (validation) {
-
-        let accessToken = jwt.sign({'user' : email}, process.env.ACCESS_TOKEN_SECRET, {expiresIn: 60000 * 60})
-        let { refreshToken } = await getRefreshToken(email)
-        
-        
-        if (refreshToken == null) {
-            refreshToken = jwt.sign({'user': email}, process.env.REFRESH_TOKEN_SECRET)
-            updateRefreshToken(email, refreshToken)
-        }
-        
-        res.cookie("refreshToken", refreshToken, {httpOnly: true})
-        res.json({accessToken: accessToken})
-    }
-    else{ 
-        res.status(401).send()
-    }
-})
-
-// middleware function used to authenticate user on private API paths
-// sends a status code 401 if the access token is not valid,
-// which should redirect the user to seek a refresh token client side.
-//
-function validateTokenMiddleware(req, res, next){
-    const authHeader = req.headers['authorization']
-    const token = authHeader && authHeader.split(' ')[1]
-    if (token == null){
-        res.status(401).send()
-    }
-    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) =>{
-        if (err) {
-            res.status(401).send('refresh token')
-        }
-        console.log(decoded)
-    })
-    next()
-}
-
-//sends a json in the format {accessToken: value} if everything is valid
-// and refreshes the token
-app.post('/refresh', async (req, res) => {
-    let clientToken = req.cookies.refreshToken && req.cookies.refreshToken
-    if (clientToken == null){
-        res.status(401).send('please log in')
-    }
-    jwt.verify(clientToken, process.env.REFRESH_TOKEN_SECRET, (err, decoded) => {
-        if (err){
-            res.status(401).send('please login again')
-        }
-        let accessToken = jwt.sign({'user' : req.params.email}, process.env.ACCESS_TOKEN_SECRET, {expiresIn: 60000 * 60})
-        res.json({accessToken: accessToken})
-    })
-})
-
-app.get('/auth', validateTokenMiddleware, (req,res) => {
-    res.send()
-})
-
+ 
 app.listen(8080, () => {
     console.log('Server running on 8080')
 })
