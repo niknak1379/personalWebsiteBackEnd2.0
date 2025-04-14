@@ -33,15 +33,13 @@ CREATE TABLE Projects (
     carouselImage_1 varchar(255),
     carouselImage_2 varchar(255),
     carouselImage_3 varchar(255),
-    PRIMARY KEY (name),
-    FOREIGN KEY (status) REFERENCES Status(status)
+    PRIMARY KEY (name) 
 );
 
 CREATE TABLE ProjectTags (
     name varchar(28) NOT NULL,
     tag varchar(255) NOT NULL,
-    FOREIGN KEY (name) REFERENCES Projects(name),
-    FOREIGN KEY (tag) REFERENCES Tags(tag)
+    FOREIGN KEY (name) REFERENCES Projects(name) ON DELETE CASCADE
 );
 
 INSERT INTO Status (status) VALUES 
