@@ -171,12 +171,22 @@ const projectImageFields = upload.fields([{name: 'pictureURL'}, {name: 'carousel
         }
     */
 app.put('/editProject',  validateTokenMiddleware, projectImageFields ,async (req, res) => {
+    console.log('files', req.files)
+    let filesArr = [req.files.pictureURL, 
+    req.files.carouselImage_1, 
+    req.files.carouselImage_2, 
+    req.files.carouselImage_3
+    ]
+    let photoArr = []
+    filesArr.map(item => {if (item != null) photoArr.push(item[0])})
 
-    let photoArr = [req.files.pictureURL[0], req.files.carouselImage_1[0], 
-                    req.files.carouselImage_2[0], req.files.carouselImage_3[0]]
-
+    
     //sends photos to the s3 bucket, generate public url of photos
     //and attach to the req body.
+    //
+    //no need to update img urls in the DB since the urls generated
+    //will be the same for all images based on the clientside form field
+    //names. probably not a secure practice but whatevs.
     photoArr.map((photo) => {
         const command = new PutObjectCommand({
             Bucket: process.env.S3_BUCKET_NAME,
@@ -198,6 +208,7 @@ app.put('/editProject',  validateTokenMiddleware, projectImageFields ,async (req
         }
         //console.log(req.body)
     })
+    
     let h = await updateProject(req.body)
     
     
@@ -205,7 +216,7 @@ app.put('/editProject',  validateTokenMiddleware, projectImageFields ,async (req
 })
 
 app.post('/newProject',  validateTokenMiddleware, projectImageFields ,async (req, res) => {
-
+    console.log(req.files)
     let photoArr = [req.files.pictureURL[0], req.files.carouselImage_1[0], 
                     req.files.carouselImage_2[0], req.files.carouselImage_3[0]]
 
@@ -232,6 +243,8 @@ app.post('/newProject',  validateTokenMiddleware, projectImageFields ,async (req
         }
         //console.log(req.body)
     })
+
+   
     let h = await insertProject(req.body)
     res.send('hi')
 })
