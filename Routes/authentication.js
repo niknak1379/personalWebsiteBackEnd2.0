@@ -62,7 +62,7 @@ app.post('/logout', (req, res) => {
 // sends a status code 401 if the access token is not valid,
 // which should redirect the user to seek a refresh token client side.
 //
-function validateTokenMiddleware(req, res, next){
+export function validateTokenMiddleware(req, res, next){
     const authHeader = req.headers['authorization']
     const token = authHeader && authHeader.split(' ')[1]
     console.log('auth header', token)
