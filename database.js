@@ -111,7 +111,7 @@ export async function getProjectDetails(projectName){
         WHERE Projects.name = ?
         `, [projectName])
     
-    console.log(projectQuery[0])
+    
     if (projectQuery[0][0] == null) return null;
 
     let tagQuery = await DB.query(`
@@ -123,6 +123,7 @@ export async function getProjectDetails(projectName){
         tagsArray.push(item.tag)
     })
     projectQuery[0][0].tags = tagsArray
+    console.log('from databasejs getproject normal details',projectQuery[0][0])
     return projectQuery[0][0]
 }
 
@@ -199,34 +200,48 @@ export async function insertProject(projectObject, tagsObject){
     */
 
 export async function updateProject(projectObject){
-    console.log('update being called', projectObject)
+    console.log('update being called, logging the passed in object', projectObject)
     try{
-        let updateProjectQuery = await DB.query(`
-            UPDATE Projects
-            SET 
-            name = ? ,
-            description = ? ,
-            longDescription = ? ,
-            status = ? ,
-            pictureURL = ? ,
-            githubURL = ? ,
-            deploymentURL = ? ,
-            obsidianURL = ? ,
-            carouselImage_1 = ? ,
-            carouselImage_2 = ? ,
-            carouselImage_3 = ?
-            WHERE Projects.name = ?
-        `, [
-            projectObject.name, projectObject.description, projectObject.longDescription,
-            projectObject.status, projectObject.pictureURL, projectObject.githubURL,
-            projectObject.deploymentURL, projectObject.obsidianURL,
-            projectObject.carouselImage_1, projectObject.carouselImage_2, projectObject.carouselImage_3,
-            projectObject.originalName
-        ])
-        console.log('update proj query', updateProjectQuery)
+    
+        const fields = [
+        'name',
+        'description',
+        'longDescription',
+        'status',
+        'pictureURL',
+        'githubURL',
+        'deploymentURL',
+        'obsidianURL',
+        'carouselImage_1',
+        'carouselImage_2',
+        'carouselImage_3'
+        ];
+
+        // Build dynamic SET clause and parameters
+        let setClauses = [];
+        let values = [];
+
+        for (const field of fields) {
+            if (projectObject[field] !== undefined && projectObject[field] !== null) {
+                setClauses.push(`${field} = ?`);
+                values.push(projectObject[field]);
+            }
+        }
+
+        // Add WHERE clause value
+        values.push(projectObject.originalName);
+
+        const updateSQL = `
+        UPDATE Projects
+        SET ${setClauses.join(', ')}
+        WHERE Projects.name = ?
+        `;
+
+        const updateProjectQuery = await DB.query(updateSQL, values);
+        //console.log('update proj query', updateProjectQuery, updateSQL)
         let tagsArray = projectObject.tags.split('-')
         console.log(tagsArray)
-        let deleteCurrentTagsQuery = DB.query(`
+        let deleteCurrentTagsQuery = await DB.query(`
                 DELETE FROM ProjectTags
                 WHERE name = ?
             `, [projectObject.originalName])
