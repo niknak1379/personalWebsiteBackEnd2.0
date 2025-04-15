@@ -60,7 +60,7 @@ app.get('/:name/:status/:tags/:numberRequested', async (req, res) => {
     }
     console.log(req.params)
     const projects = await getProjects(`${req.params.name}`, req.params.status, req.params.tags, req.params.numberRequested)
-    console.log(projects)
+    console.log('logging batch returned projects from het',projects)
     res.send(projects)
 })
 
@@ -84,7 +84,7 @@ app.get('/:name/:status/:tags/:numberRequested', async (req, res) => {
 */
 app.get('/projectDetails/:projectName', async (req, res) => {
     const projectDetails = await getProjectDetails(req.params.projectName)
-    console.log(projectDetails)
+    //console.log('logging project details from get project',projectDetails)
     res.send(projectDetails)
 })
 /*
@@ -134,7 +134,7 @@ app.delete('/:projectName', validateTokenMiddleware, async (req, res) => {
         res.status(403).send('project not found')
     }
     const deletedProject = await deleteProject(req.params.projectName)
-    console.log(deletedProject)
+    console.log('logging deleted project',deletedProject)
     res.status(201).send('ok')
 })
 
@@ -211,7 +211,8 @@ app.put('/editProject',  validateTokenMiddleware, projectImageFields ,async (req
     
     let h = await updateProject(req.body)
     
-    
+    console.log('response sent back')
+    console.log('response sent back')
     res.send('hi')
 })
 
