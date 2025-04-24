@@ -39,7 +39,10 @@ CREATE TABLE Projects (
 CREATE TABLE ProjectTags (
     name varchar(28) NOT NULL,
     tag varchar(255) NOT NULL,
-    FOREIGN KEY (name) REFERENCES Projects(name) ON DELETE CASCADE
+    FOREIGN KEY (name) 
+    REFERENCES Projects(name) 
+    ON DELETE CASCADE
+    ON UPDATE CASCADE
 );
 
 INSERT INTO Status (status) VALUES 
