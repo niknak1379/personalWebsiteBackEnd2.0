@@ -104,7 +104,7 @@ export async function getAllStatus(){
 
 export async function getProjectDetails(projectName){
     let projectQuery = await DB.query(`
-        SELECT longDescription, status, githubURL, 
+        SELECT longDescription, description, status, githubURL, 
         deploymentURL, pictureURL, carouselImage_1, 
         carouselImage_2, carouselImage_3, obsidianURL
         FROM Projects

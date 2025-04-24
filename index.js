@@ -1,31 +1,50 @@
-import express from 'express'
-import {getAllStatus, getAllTags, getProjects, 
-    insertProject, getProjectDetails, 
-    deleteProject, updateProject} from './database.js'
-import { validateTokenMiddleware } from './Routes/authentication.js'
-import cors from 'cors'
-import multer from 'multer'
-import cookieParser from 'cookie-parser'
-import auth from './Routes/authentication.js'
-import { PutObjectAclCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import express from "express";
+import {
+	getAllStatus,
+	getAllTags,
+	getProjects,
+	insertProject,
+	getProjectDetails,
+	deleteProject,
+	updateProject,
+} from "./database.js";
+import { validateTokenMiddleware } from "./Routes/authentication.js";
+import cors from "cors";
+import multer from "multer";
+import cookieParser from "cookie-parser";
+import auth from "./Routes/authentication.js";
+import {
+	DeleteObjectCommand,
+	DeleteObjectsCommand,
+	PutObjectAclCommand,
+	PutObjectCommand,
+	S3Client,
+} from "@aws-sdk/client-s3";
+import sanitizer from "perfect-express-sanitizer";
+const app = express();
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
-const app = express()
-const storage = multer.memoryStorage()
-const upload  = multer({storage: storage})
-
-app.use('/', auth)
-app.use(express.json())
-
+app.use("/", auth);
+app.use(express.json());
+/* app.use(
+    sanitizer.clean({
+      xss: true,
+      sql: true,
+      sqlLevel: 5,
+    })
+  ); */
 var corsOptions = {
-    origin: ['http://localhost:3000', 'http://localhost:80'],
-    credentials: true };
+	origin: ["http://localhost:3000", "http://localhost:80"],
+	credentials: true,
+};
 app.use(cors(corsOptions));
 
-app.use(cookieParser())
+app.use(cookieParser());
 app.use((err, req, res, next) => {
-    console.error(err.stack)
-    res.status(500).send("DataBase Crashed :(")
-})
+	console.error(err.stack);
+	res.send("DataBase Crashed :(");
+});
 
 /*
 expected returned data format, array of JSON objects in the following format
@@ -40,29 +59,34 @@ expected returned data format, array of JSON objects in the following format
     }
     ]
 */
-app.get('/:name/:status/:tags/:numberRequested', async (req, res) => {                  
-    //send in space for an empty paramter
-    if (req.params.name == ' '){
-        req.params.name = ''
-    }
-    if (req.params.status == ' ') {
-        req.params.status = ["In Progress", "Complete", "To Be Started"]
-    }
-    else {
-        req.params.status = req.params.status.split('-')
-    }
-    //send in space for an empty tag
-    if (req.params.tags == ' ') {
-        req.params.tags = ['ALL']
-    }
-    else {
-        req.params.tags = req.params.tags.split('-')
-    }
-    console.log(req.params)
-    const projects = await getProjects(`${req.params.name}`, req.params.status, req.params.tags, req.params.numberRequested)
-    console.log('logging batch returned projects from het',projects)
-    res.send(projects)
-})
+app.get("/:name/:status/:tags/:numberRequested", async (req, res) => {
+	//send in space for an empty paramter
+
+	if (req.params.name == " ") {
+		req.params.name = "";
+	}
+	if (req.params.status == " ") {
+		req.params.status = ["In Progress", "Complete", "To Be Started"];
+	} else {
+		req.params.status = req.params.status.split("-");
+	}
+	//send in space for an empty tag
+	if (req.params.tags == " ") {
+		req.params.tags = ["ALL"];
+	} else {
+		req.params.tags = req.params.tags.split("-");
+	}
+	console.log(req.params);
+	const projects = await getProjects(
+		`${req.params.name}`,
+		req.params.status,
+		req.params.tags,
+		req.params.numberRequested
+	);
+	console.log("logging batch returned projects from het", projects);
+
+	res.send(projects);
+});
 
 /*
     Expected output strutcture:
@@ -82,11 +106,12 @@ app.get('/:name/:status/:tags/:numberRequested', async (req, res) => {
         tags: [ 'ALL', 'React', 'Tailwind', 'FrontEnd' ]
     }
 */
-app.get('/projectDetails/:projectName', async (req, res) => {
-    const projectDetails = await getProjectDetails(req.params.projectName)
-    //console.log('logging project details from get project',projectDetails)
-    res.send(projectDetails)
-})
+app.get("/projectDetails/:projectName", async (req, res) => {
+	const projectDetails = await getProjectDetails(req.params.projectName);
+	//console.log('logging project details from get project',projectDetails)
+
+	res.send(projectDetails);
+});
 /*
 expected returned data format, array of JSON objects in the following format
    [
@@ -96,11 +121,11 @@ expected returned data format, array of JSON objects in the following format
     }
     ]
 */
-app.get('/tags', async (req, res) => {
-    const tags = await getAllTags()
-    console.log(tags)
-    res.send(tags)
-})
+app.get("/tags", async (req, res) => {
+	const tags = await getAllTags();
+	console.log(tags);
+	res.send(tags);
+});
 /*
 expected returned data format, array of JSON objects in the following format
    [
@@ -110,42 +135,59 @@ expected returned data format, array of JSON objects in the following format
     }
     ]
 */
-app.get('/status', async(req, res) => {
-    const status = await getAllStatus()
-    console.log(status)
-    res.send(status)
-})
-
-
+app.get("/status", async (req, res) => {
+	const status = await getAllStatus();
+	console.log(status);
+	res.send(status);
+});
 
 const S3 = new S3Client({
-    region: process.env.S3_BUCKET_REGION,
-    credentials: {
-        accessKeyId: process.env.S3_ACCESS_KEY,
-        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
-    }
-})
-
+	region: process.env.S3_BUCKET_REGION,
+	credentials: {
+		accessKeyId: process.env.S3_ACCESS_KEY,
+		secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+	},
+});
 
 //need to also delete the s3 path of the project as well
-app.delete('/:projectName', validateTokenMiddleware, async (req, res) => {
-    const projectDetails = await getProjectDetails(req.params.projectName)
-    if (projectDetails == null){
-        res.status(403).send('project not found')
-    }
-    const deletedProject = await deleteProject(req.params.projectName)
-    console.log('logging deleted project',deletedProject)
-    res.status(201).send('ok')
-})
+app.delete("/:projectName", validateTokenMiddleware, async (req, res) => {
+	const projectDetails = await getProjectDetails(req.params.projectName);
+	if (projectDetails == null) {
+		res.status(403).send("project not found");
+	}
+	let { pictureURL, carouselImage_1, carouselImage_2, carouselImage_3 } =
+		projectDetails;
 
+	let pictures = [
+		pictureURL,
+		carouselImage_1,
+		carouselImage_2,
+		carouselImage_3,
+	];
+	let s3message = await S3.send(
+		new DeleteObjectsCommand({
+			Bucket: process.env.S3_BUCKET_NAME,
+			Delete: {
+				Objects: pictures.map((picture) => ({
+					Key: picture.split(".com/")[1],
+				})),
+			},
+		})
+	);
+	console.log(s3message);
+	let deletedProject = await deleteProject(req.params.projectName);
+	console.log("logging deleted project", deletedProject);
+	res.status(201).send("ok");
+});
 
+const projectImageFields = upload.fields([
+	{ name: "pictureURL" },
+	{ name: "carouselImage_1" },
+	{ name: "carouselImage_2" },
+	{ name: "carouselImage_3" },
+]);
 
-const projectImageFields = upload.fields([{name: 'pictureURL'}, {name: 'carouselImage_1'}, {name: 'carouselImage_2'},
-    {name: 'carouselImage_3'}
-])
-
-
-    /*
+/*
         projectObject returned as the req.body
         picture links will have to be appended.
         {
@@ -170,88 +212,99 @@ const projectImageFields = upload.fields([{name: 'pictureURL'}, {name: 'carousel
             size: 876
         }
     */
-app.put('/editProject',  validateTokenMiddleware, projectImageFields ,async (req, res) => {
-    console.log('files', req.files)
-    let filesArr = [req.files.pictureURL, 
-    req.files.carouselImage_1, 
-    req.files.carouselImage_2, 
-    req.files.carouselImage_3
-    ]
-    let photoArr = []
-    filesArr.map(item => {if (item != null) photoArr.push(item[0])})
+app.put(
+	"/editProject",
+	validateTokenMiddleware,
+	projectImageFields,
+	async (req, res) => {
+		console.log("files", req.files);
+		let filesArr = req.files
+			? [
+					req.files.pictureURL,
+					req.files.carouselImage_1,
+					req.files.carouselImage_2,
+					req.files.carouselImage_3,
+			  ]
+			: [];
+		let photoArr = [];
+		filesArr.map((item) => {
+			if (item != null) photoArr.push(item[0]);
+		});
 
-    
-    //sends photos to the s3 bucket, generate public url of photos
-    //and attach to the req body.
-    //
-    //no need to update img urls in the DB since the urls generated
-    //will be the same for all images based on the clientside form field
-    //names. probably not a secure practice but whatevs.
-    photoArr.map((photo) => {
-        const command = new PutObjectCommand({
-            Bucket: process.env.S3_BUCKET_NAME,
-            Key: process.env.S3_PROJECT_DIR + 
-                 req.body.name + '/' + photo.fieldname,
-            Body: photo.buffer,
-            ContentType: photo.mimetype
-        })
-        console.log(command)
-        try{
-            let h = S3.send(command)
-            //console.log(h)
-            req.body[photo.fieldname] = process.env.S3_IMG_URL_PREFIX + req.body.name + `/${photo.fieldname}`
-            console.log('after s3 call',req.body)
-        }
-        catch(error){
-            console.log(error)
-            res.status(501).send('unexpected server error')
-        }
-        //console.log(req.body)
-    })
-    
-    let h = await updateProject(req.body)
-    
-    console.log('response sent back')
-    console.log('response sent back')
-    res.send('hi')
-})
+		//sends photos to the s3 bucket, generate public url of photos
+		//and attach to the req body.
+		//
+		//no need to update img urls in the DB since the urls generated
+		//will be the same for all images based on the clientside form field
+		//names. probably not a secure practice but whatevs.
+		photoArr.map((photo) => {
+			const command = new PutObjectCommand({
+				Bucket: process.env.S3_BUCKET_NAME,
+				Key: process.env.S3_PROJECT_DIR + req.body.name + "/" + photo.fieldname,
+				Body: photo.buffer,
+				ContentType: photo.mimetype,
+			});
+			console.log(command);
+			try {
+				let h = S3.send(command);
+				//console.log(h)
+				req.body[photo.fieldname] =
+					process.env.S3_IMG_URL_PREFIX + req.body.name + `/${photo.fieldname}`;
+				console.log("after s3 call", req.body);
+			} catch (error) {
+				console.log(error);
+				res.status(501).send("unexpected server error");
+			}
+			//console.log(req.body)
+		});
 
-app.post('/newProject',  validateTokenMiddleware, projectImageFields ,async (req, res) => {
-    console.log(req.files)
-    let photoArr = [req.files.pictureURL[0], req.files.carouselImage_1[0], 
-                    req.files.carouselImage_2[0], req.files.carouselImage_3[0]]
+		let h = await updateProject(req.body);
 
-    //sends photos to the s3 bucket, generate public url of photos
-    //and attach to the req body.
-    photoArr.map((photo) => {
-        const command = new PutObjectCommand({
-            Bucket: process.env.S3_BUCKET_NAME,
-            Key: process.env.S3_PROJECT_DIR + 
-                 req.body.name + '/' + photo.fieldname,
-            Body: photo.buffer,
-            ContentType: photo.mimetype
-        })
-        console.log(command)
-        try{
-            let h = S3.send(command)
-            //console.log(h)
-            req.body[photo.fieldname] = process.env.S3_IMG_URL_PREFIX + req.body.name + `/${photo.fieldname}`
-            console.log('after s3 call',req.body)
-        }
-        catch(error){
-            console.log(error)
-            res.status(501).send('unexpected server error')
-        }
-        //console.log(req.body)
-    })
+		res.send("hi");
+	}
+);
 
-   
-    let h = await insertProject(req.body)
-    res.send('hi')
-})
+app.post(
+	"/newProject",
+	validateTokenMiddleware,
+	projectImageFields,
+	async (req, res) => {
+		console.log(req.files);
+		let photoArr = [
+			req.files.pictureURL[0],
+			req.files.carouselImage_1[0],
+			req.files.carouselImage_2[0],
+			req.files.carouselImage_3[0],
+		];
 
-  
+		//sends photos to the s3 bucket, generate public url of photos
+		//and attach to the req body.
+		photoArr.map((photo) => {
+			const command = new PutObjectCommand({
+				Bucket: process.env.S3_BUCKET_NAME,
+				Key: process.env.S3_PROJECT_DIR + req.body.name + "/" + photo.fieldname,
+				Body: photo.buffer,
+				ContentType: photo.mimetype,
+			});
+			console.log(command);
+			try {
+				let h = S3.send(command);
+				//console.log(h)
+				req.body[photo.fieldname] =
+					process.env.S3_IMG_URL_PREFIX + req.body.name + `/${photo.fieldname}`;
+				console.log("after s3 call", req.body);
+			} catch (error) {
+				console.log(error);
+				res.status(501).send("unexpected server error");
+			}
+			//console.log(req.body)
+		});
+
+		let h = await insertProject(req.body);
+		res.send("hi");
+	}
+);
+
 app.listen(8080, () => {
-    console.log('Server running on 8080')
-})
-
+	console.log("Server running on 8080");
+});
