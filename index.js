@@ -21,6 +21,8 @@ import {
 	S3Client,
 } from "@aws-sdk/client-s3";
 import sanitizer from "perfect-express-sanitizer";
+import elasticClient from "./elasticSearchClient.js";
+
 const app = express();
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
@@ -61,31 +63,81 @@ expected returned data format, array of JSON objects in the following format
 */
 app.get("/:name/:status/:tags/:numberRequested", async (req, res) => {
 	//send in space for an empty paramter
+	const INDEX_NAME = "projects";
+	const { name, status, tags, numberRequested } = req.params;
 
-	if (req.params.name == " ") {
-		req.params.name = "";
-	}
-	if (req.params.status == " ") {
-		req.params.status = ["In Progress", "Complete", "To Be Started"];
-	} else {
-		req.params.status = req.params.status.split("-");
-	}
-	//send in space for an empty tag
-	if (req.params.tags == " ") {
-		req.params.tags = ["ALL"];
-	} else {
-		req.params.tags = req.params.tags.split("-");
-	}
-	console.log(req.params);
-	const projects = await getProjects(
-		`${req.params.name}`,
-		req.params.status,
-		req.params.tags,
-		req.params.numberRequested
-	);
-	console.log("logging batch returned projects from het", projects);
+	const searchQuery = name === " " ? "" : name;
 
-	res.send(projects);
+	const statusArray =
+		status === " "
+			? ["In Progress", "Complete", "To Be Started"]
+			: status.split("-");
+
+	const tagArray = tags === " " ? [] : tags.split("-");
+
+	const query = {
+		bool: {
+			must: [],
+			should: [],
+			filter: [],
+		},
+	};
+
+	// full-text match on name, description, etc.
+	if (searchQuery) {
+		query.bool.must.push({
+			multi_match: {
+				query: searchQuery,
+				fields: ["name", "description", "longDescription", "tags"],
+				fuzziness: "AUTO",
+			},
+		});
+	} //else {
+	//query.bool.must.push({
+	//	match_all: {},
+	//});
+	//}
+
+	// filter by status (always applied)
+	query.bool.filter.push({
+		terms: {
+			"status.keyword": statusArray,
+		},
+	});
+
+	// filter by tags, if present and not ALL
+	if (tagArray.length > 0 && !tagArray.includes("ALL")) {
+		query.bool.filter.push({
+			terms: {
+				"tags.keyword": tagArray,
+			},
+		});
+	}
+	console.log("query", JSON.stringify(query));
+	try {
+		const result = await elasticClient.search({
+			index: INDEX_NAME,
+			size: Number(numberRequested) || 10,
+			body: {
+				query: query,
+				/* query: {
+					match: {
+						name: "Nikan",
+					},
+				}, */
+			},
+		});
+		console.log("result of query", result.body.hits);
+		const projects = result.body.hits.hits.map((hit) => ({
+			id: hit._id,
+			...hit._source,
+			score: hit._score,
+		}));
+		console.log("logging batch returned projects from ES", projects);
+		res.send(projects);
+	} catch (error) {
+		console.log("elastic search failed, in get", error);
+	}
 });
 
 /*
