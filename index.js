@@ -37,7 +37,12 @@ app.use(express.json());
     })
   ); */
 var corsOptions = {
-	origin: ["http://localhost:3000", "http://localhost:80"],
+	origin: [
+		"http://localhost:3000",
+		"http://localhost:80",
+		"https://www.nikanostovan.dev",
+		"https://nikanostovan.dev",
+	],
 	credentials: true,
 };
 app.use(cors(corsOptions));

@@ -1,6 +1,6 @@
--- MySQL dump 10.13  Distrib 9.2.0, for macos15.2 (arm64)
+-- MySQL dump 10.13  Distrib 8.4.7, for macos15.4 (arm64)
 --
--- Host: localhost    Database: Projects
+-- Host: localhost    Database: projects
 -- ------------------------------------------------------
 -- Server version	8.0.41
 
@@ -56,7 +56,7 @@ UNLOCK TABLES;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-/*!50003 CREATE*/ /*!50017 DEFINER=`root`@`localhost`*/ /*!50003 TRIGGER `validStatus` BEFORE INSERT ON `Projects` FOR EACH ROW BEGIN
+/*!50003 CREATE*/ /*!50017 */ /*!50003 TRIGGER `validStatus` BEFORE INSERT ON `Projects` FOR EACH ROW BEGIN
     IF NOT EXISTS (SELECT status FROM Status WHERE status = new.status) THEN
         SIGNAL SQLSTATE '45000' 
         SET MESSAGE_TEXT = 'Invalid status';  
@@ -76,7 +76,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-/*!50003 CREATE*/ /*!50017 DEFINER=`root`@`localhost`*/ /*!50003 TRIGGER `defaultTag` AFTER INSERT ON `Projects` FOR EACH ROW BEGIN
+/*!50003 CREATE*/ /*!50017 */ /*!50003 TRIGGER `defaultTag` AFTER INSERT ON `Projects` FOR EACH ROW BEGIN
     INSERT INTO ProjectTags
     VALUES(new.name, 'ALL');
 END */;;
@@ -119,7 +119,7 @@ UNLOCK TABLES;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-/*!50003 CREATE*/ /*!50017 DEFINER=`root`@`localhost`*/ /*!50003 TRIGGER `updateTag` BEFORE INSERT ON `projectTags` FOR EACH ROW BEGIN
+/*!50003 CREATE*/ /*!50017 */ /*!50003 TRIGGER `updateTag` BEFORE INSERT ON `ProjectTags` FOR EACH ROW BEGIN
     IF NOT EXISTS (SELECT 1 FROM Tags WHERE tag = new.tag) THEN
         INSERT INTO Tags(tag)
         VALUES (new.tag);
@@ -210,4 +210,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-10-26 12:33:51
+-- Dump completed on 2025-10-26 14:14:45

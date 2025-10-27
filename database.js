@@ -287,7 +287,7 @@ export async function updateProject(projectObject) {
         `;
 
 		const updateProjectQuery = await DB.query(updateSQL, values);
-		//console.log('update proj query', updateProjectQuery, updateSQL)
+		console.log("update proj query", updateProjectQuery, updateSQL);
 		let tagsArray = projectObject.tags.split("-");
 		console.log(tagsArray);
 		let deleteCurrentTagsQuery = await DB.query(
@@ -304,11 +304,12 @@ export async function updateProject(projectObject) {
 			[tagsArray.map((tag) => [projectObject.name, tag])]
 		);
 		console.log("tag query", updateTagsQuery);
-		await elasticClient.delete({
+		/* await elasticClient.delete({
 			index: INDEX_NAME,
 			id: projectObject.originalName,
-		});
-		await elasticClient.index({
+			refresh: true,
+		}); */
+		/* await elasticClient.index({
 			index: INDEX_NAME,
 			id: projectObject.name,
 			body: {
@@ -316,7 +317,8 @@ export async function updateProject(projectObject) {
 				tags: tagsArray,
 			},
 			refresh: true,
-		});
+		}); */
+		syncAllProjectsToElasticsearch();
 	} catch (error) {
 		console.log(error);
 		return error;
