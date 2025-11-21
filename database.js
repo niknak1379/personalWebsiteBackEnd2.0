@@ -100,7 +100,13 @@ export async function getProjects(
 
 	return returnList;
 }
-
+let res = await getProjects(
+	"",
+	["In Progress", "Complete", "To Be Started"],
+	["ALL"],
+	10
+);
+console.log("logging test", res);
 //returns all tags and their frequencies
 export async function getAllTags() {
 	let query = await DB.query(
@@ -210,6 +216,7 @@ export async function insertProject(projectObject, tagsObject) {
 			[tagsArray.map((tag) => [projectObject.name, tag])]
 		);
 		console.log("tag query", updateTagsQuery);
+		/*
 		await elasticClient.index({
 			index: INDEX_NAME,
 			id: projectObject.name,
@@ -220,6 +227,8 @@ export async function insertProject(projectObject, tagsObject) {
 		});
 
 		await elasticClient.indices.refresh({ index: INDEX_NAME });
+		*/
+		elasticSearchResync();
 	} catch (error) {
 		console.log(error);
 		return error;
@@ -318,7 +327,7 @@ export async function updateProject(projectObject) {
 			},
 			refresh: true,
 		}); */
-		syncAllProjectsToElasticsearch();
+		elasticSearchResync();
 	} catch (error) {
 		console.log(error);
 		return error;
@@ -385,12 +394,38 @@ export async function syncAllProjectsToElasticsearch() {
 		console.error("Failed to sync projects to Elasticsearch:", err);
 	}
 }
-try {
-	syncAllProjectsToElasticsearch();
-	const mapping = await elasticClient.indices.getMapping({
-		index: "projects",
-	});
-	console.log(JSON.stringify(mapping, null, 2));
-} catch (error) {
-	console.log(error);
+export async function deleteAllProjectsFromElasticsearch() {
+	try {
+		console.log("🗑️  Deleting all existing documents...");
+		await elasticClient.deleteByQuery({
+			index: INDEX_NAME,
+			body: {
+				query: {
+					match_all: {},
+				},
+			},
+			refresh: true,
+			wait_for_completion: true,
+			conflicts: "proceed",
+		});
+		console.log("All documents deleted");
+	} catch (deleteErr) {
+		if (deleteErr.meta?.statusCode === 404) {
+			console.log("Index was empty or doesn't exist");
+		}
+		console.error("Failed to delete documents:", deleteErr);
+		throw deleteErr;
+	}
+}
+async function elasticSearchResync() {
+	try {
+		await deleteAllProjectsFromElasticsearch();
+		await syncAllProjectsToElasticsearch();
+		const mapping = await elasticClient.indices.getMapping({
+			index: "projects",
+		});
+		console.log(JSON.stringify("elasticSearch mapping", mapping, null, 2));
+	} catch (error) {
+		console.log(error);
+	}
 }
