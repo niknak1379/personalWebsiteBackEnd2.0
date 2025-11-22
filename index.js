@@ -7,6 +7,7 @@ import {
   getProjectDetails,
   deleteProject,
   updateProject,
+  toCDN,
 } from "./database.js";
 import { validateTokenMiddleware } from "./Routes/authentication.js";
 import cors from "cors";
@@ -26,7 +27,7 @@ import elasticClient from "./elasticSearchClient.js";
 const app = express();
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
-
+const INDEX_NAME = "projects";
 app.use("/", auth);
 app.use(express.json());
 /* app.use(
@@ -68,7 +69,7 @@ expected returned data format, array of JSON objects in the following format
 */
 app.get("/:name/:status/:tags/:numberRequested", async (req, res) => {
   //send in space for an empty paramter
-  const INDEX_NAME = "projects";
+
   const { name, status, tags, numberRequested } = req.params;
 
   const searchQuery = name === " " ? "" : name;
@@ -125,11 +126,6 @@ app.get("/:name/:status/:tags/:numberRequested", async (req, res) => {
       size: Number(numberRequested) || 10,
       body: {
         query: query,
-        /* query: {
-					match: {
-						name: "Nikan",
-					},
-				}, */
       },
     });
     console.log("result of query", result.body.hits);
@@ -138,10 +134,19 @@ app.get("/:name/:status/:tags/:numberRequested", async (req, res) => {
       ...hit._source,
       score: hit._score,
     }));
+
+    projects.forEach((projectDetails) => {
+      console.log("logging from inside the proj", projectDetails);
+      projectDetails.pictureURL = toCDN(projectDetails.pictureURL);
+      projectDetails.carouselImage_1 = toCDN(projectDetails.carouselImage_1);
+      projectDetails.carouselImage_2 = toCDN(projectDetails.carouselImage_2);
+      projectDetails.carouselImage_3 = toCDN(projectDetails.carouselImage_3);
+    });
     console.log("logging batch returned projects from ES", projects);
     res.send(projects);
   } catch (error) {
     console.log("elastic search failed, in get", error);
+    res.send("get failed, elastic Search node down", 500);
   }
 });
 
@@ -164,8 +169,18 @@ app.get("/:name/:status/:tags/:numberRequested", async (req, res) => {
     }
 */
 app.get("/projectDetails/:projectName", async (req, res) => {
-  const projectDetails = await getProjectDetails(req.params.projectName);
+  //const projectDetails = await getProjectDetails(req.params.projectName);
   //console.log('logging project details from get project',projectDetails)
+  let { body: currentDoc } = await elasticClient.get({
+    index: INDEX_NAME,
+    id: req.params.projectName,
+  });
+  //process urls and change to the CDN version
+  let projectDetails = currentDoc._source;
+  projectDetails.pictureURL = toCDN(projectDetails.pictureURL);
+  projectDetails.carouselImage_1 = toCDN(projectDetails.carouselImage_1);
+  projectDetails.carouselImage_2 = toCDN(projectDetails.carouselImage_2);
+  projectDetails.carouselImage_3 = toCDN(projectDetails.carouselImage_3);
 
   res.send(projectDetails);
 });
@@ -408,7 +423,7 @@ app.post(
       }
 
       // Insert project after all images are processed
-      // await insertProject(req.body);
+      await insertProject(req.body);
       res.send("Project created successfully");
     } catch (error) {
       console.log("Error:", error);

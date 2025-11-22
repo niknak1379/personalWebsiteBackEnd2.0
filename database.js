@@ -108,7 +108,7 @@ let res = await getProjects(
   ["ALL"],
   10
 );
-console.log("logging test", res);
+//console.log("logging test", res);
 //returns all tags and their frequencies
 export async function getAllTags() {
   let query = await DB.query(
@@ -457,4 +457,14 @@ async function elasticSearchResync() {
   } catch (error) {
     console.log(error);
   }
+}
+
+/**
+ * Converts an S3 URL to CloudFront CDN URL
+ * @param {string} s3Url - The full S3 URL
+ * @returns {string} The CloudFront CDN URL
+ */
+export function toCDN(s3Url) {
+  console.log("CDN function being called on url", s3Url);
+  return s3Url.replace(process.env.S3_BUCKET_URL, process.env.CLOUDFRONT_URL);
 }
