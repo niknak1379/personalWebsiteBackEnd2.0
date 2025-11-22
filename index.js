@@ -417,6 +417,10 @@ app.post(
   }
 );
 
+app.get("/healthCheck", (req, res) => {
+  res.send("healthy", 200);
+});
+
 app.listen(8080, () => {
   console.log("Server running on 8080");
 });

@@ -5,43 +5,43 @@ import elasticClient from "./elasticSearchClient.js";
 dotenv.config();
 const INDEX_NAME = "projects";
 const DB = mysql
-	.createPool({
-		host: process.env.MYSQL_HOST,
-		user: process.env.MYSQL_USER,
-		password: process.env.MYSQL_PASSWORD,
-		database: process.env.MYSQL_DATABASE,
-	})
-	.promise();
+  .createPool({
+    host: process.env.MYSQL_HOST,
+    user: process.env.MYSQL_USER,
+    password: process.env.MYSQL_PASSWORD,
+    database: process.env.MYSQL_DATABASE,
+  })
+  .promise();
 
 export async function validateLogin(user) {
-	console.log("from validate", user);
-	let query = await DB.query(
-		`
+  console.log("from validate", user);
+  let query = await DB.query(
+    `
         SELECT * FROM Users
         WHERE Users.name = ?`,
-		[user]
-	);
-	return query[0][0];
+    [user]
+  );
+  return query[0][0];
 }
 export async function getRefreshToken(user) {
-	let query = await DB.query(
-		`
+  let query = await DB.query(
+    `
         SELECT refreshToken FROM Users
         WHERE name = ?`,
-		[user]
-	);
-	return query[0][0];
+    [user]
+  );
+  return query[0][0];
 }
 
 export async function updateRefreshToken(user, value) {
-	let query = await DB.query(
-		`
+  let query = await DB.query(
+    `
         UPDATE Users
         SET refreshToken = ?
         WHERE Users.name = ?`,
-		[value, user]
-	);
-	return query[0];
+    [value, user]
+  );
+  return query[0];
 }
 
 //Does not support no tags at the moment, could just do an all tag and cheese it
@@ -59,17 +59,17 @@ export async function updateRefreshToken(user, value) {
         HAVING COUNT(DISTINCT ProjectTags.tag) = ?
         `, [tagsArray, `%${searchQueryStr}%`, `%${statusStr}%`, tagsArray.length]) */
 export async function getProjects(
-	searchQueryStr,
-	statusArr,
-	tagsArray,
-	entriesRequested
+  searchQueryStr,
+  statusArr,
+  tagsArray,
+  entriesRequested
 ) {
-	if (tagsArray.length == 0) {
-		//console.log('hi')
-	}
+  if (tagsArray.length == 0) {
+    //console.log('hi')
+  }
 
-	let queryWithDuplicates = await DB.query(
-		`
+  let queryWithDuplicates = await DB.query(
+    `
         SELECT Projects.name, description, status, pictureURL, githubURL, deploymentURL FROM Projects 
         JOIN ProjectTags ON Projects.name = ProjectTags.name
         WHERE ProjectTags.tag IN (?)
@@ -78,93 +78,95 @@ export async function getProjects(
         GROUP BY Projects.name
         HAVING COUNT(DISTINCT ProjectTags.tag) = ?
         `,
-		[tagsArray, `%${searchQueryStr}%`, statusArr, tagsArray.length]
-	);
+    [tagsArray, `%${searchQueryStr}%`, statusArr, tagsArray.length]
+  ); //  since im joing the tags and the projects table
+  //  it will return as many duplicates as there are
+  //  tags -> hence the deduplication
 
-	//handle duplicates
-	let set = new Set();
-	let returnList = [];
-	//console.log(queryWithDuplicates[0][0]);
-	for (let i = 0; i < queryWithDuplicates[0].length; i++) {
-		//console.log(queryWithDuplicates[0][i].name)
-		if (set.has(queryWithDuplicates[0][i].name)) {
-			continue;
-		}
-		set.add(queryWithDuplicates[0][i].name);
-		returnList.push(queryWithDuplicates[0][i]);
-	}
-	if (entriesRequested <= 0) {
-		entriesRequested = returnList.length;
-	}
-	returnList.length = Math.min(returnList.length, entriesRequested);
+  //handle duplicates
+  let set = new Set();
+  let returnList = [];
+  //console.log(queryWithDuplicates[0][0]);
+  for (let i = 0; i < queryWithDuplicates[0].length; i++) {
+    //console.log(queryWithDuplicates[0][i].name)
+    if (set.has(queryWithDuplicates[0][i].name)) {
+      continue;
+    }
+    set.add(queryWithDuplicates[0][i].name);
+    returnList.push(queryWithDuplicates[0][i]);
+  }
+  if (entriesRequested <= 0) {
+    entriesRequested = returnList.length;
+  }
+  returnList.length = Math.min(returnList.length, entriesRequested);
 
-	return returnList;
+  return returnList;
 }
 let res = await getProjects(
-	"",
-	["In Progress", "Complete", "To Be Started"],
-	["ALL"],
-	10
+  "",
+  ["In Progress", "Complete", "To Be Started"],
+  ["ALL"],
+  10
 );
 console.log("logging test", res);
 //returns all tags and their frequencies
 export async function getAllTags() {
-	let query = await DB.query(
-		`
+  let query = await DB.query(
+    `
         SELECT tag, COUNT(*) AS Frequency
         FROM ProjectTags
         GROUP BY tag
         ORDER BY Frequency DESC;
         `,
-		[]
-	);
-	return query[0];
+    []
+  );
+  return query[0];
 }
 export async function getAllStatus() {
-	let query = await DB.query(`
+  let query = await DB.query(`
         SELECT status, COUNT(*) AS Frequency
         FROM Projects
         GROUP BY status
         `);
-	return query[0];
+  return query[0];
 }
 
 export async function getProjectDetails(projectName) {
-	let projectQuery = await DB.query(
-		`
+  let projectQuery = await DB.query(
+    `
         SELECT longDescription, description, status, githubURL, 
         deploymentURL, pictureURL, carouselImage_1, 
         carouselImage_2, carouselImage_3, obsidianURL
         FROM Projects
         WHERE Projects.name = ?
         `,
-		[projectName]
-	);
+    [projectName]
+  );
 
-	if (projectQuery[0][0] == null) return null;
+  if (projectQuery[0][0] == null) return null;
 
-	let tagQuery = await DB.query(
-		`
+  let tagQuery = await DB.query(
+    `
         SELECT tag From ProjectTags
         WHERE name = ?
         `,
-		[projectName]
-	);
-	let tagsArray = [];
-	tagQuery[0].forEach((item) => {
-		tagsArray.push(item.tag);
-	});
-	projectQuery[0][0].tags = tagsArray;
-	console.log("from databasejs getproject normal details", projectQuery[0][0]);
-	return projectQuery[0][0];
+    [projectName]
+  );
+  let tagsArray = [];
+  tagQuery[0].forEach((item) => {
+    tagsArray.push(item.tag);
+  });
+  projectQuery[0][0].tags = tagsArray;
+  console.log("from databasejs getproject normal details", projectQuery[0][0]);
+  return projectQuery[0][0];
 }
 
 //getProjects("nik", "", ["PYTHON", "WEBDEV"])
 export async function insertProject(projectObject, tagsObject) {
-	console.log("update being called", projectObject);
-	try {
-		let insertProjectQuery = await DB.query(
-			`
+  console.log("update being called", projectObject);
+  try {
+    let insertProjectQuery = await DB.query(
+      `
             INSERT INTO Projects (
             name,
             description,
@@ -192,47 +194,45 @@ export async function insertProject(projectObject, tagsObject) {
             ?
             );
         `,
-			[
-				projectObject.name,
-				projectObject.description,
-				projectObject.longDescription,
-				projectObject.status,
-				projectObject.pictureURL,
-				projectObject.githubURL,
-				projectObject.deploymentURL,
-				projectObject.obsidianURL,
-				projectObject.carouselImage_1,
-				projectObject.carouselImage_2,
-				projectObject.carouselImage_3,
-				projectObject.originalName,
-			]
-		);
-		let tagsArray = projectObject.tags.split("-");
-		console.log(tagsArray);
-		let updateTagsQuery = await DB.query(
-			`
+      [
+        projectObject.name,
+        projectObject.description,
+        projectObject.longDescription,
+        projectObject.status,
+        projectObject.pictureURL,
+        projectObject.githubURL,
+        projectObject.deploymentURL,
+        projectObject.obsidianURL,
+        projectObject.carouselImage_1,
+        projectObject.carouselImage_2,
+        projectObject.carouselImage_3,
+        projectObject.originalName,
+      ]
+    );
+    let tagsArray = projectObject.tags.split("-");
+    console.log(tagsArray);
+    let updateTagsQuery = await DB.query(
+      `
                 INSERT INTO ProjectTags VALUES ?
             `,
-			[tagsArray.map((tag) => [projectObject.name, tag])]
-		);
-		console.log("tag query", updateTagsQuery);
-		/*
-		await elasticClient.index({
-			index: INDEX_NAME,
-			id: projectObject.name,
-			document: {
-				...projectObject,
-				tags: tagsArray,
-			},
-		});
-
-		await elasticClient.indices.refresh({ index: INDEX_NAME });
-		*/
-		elasticSearchResync();
-	} catch (error) {
-		console.log(error);
-		return error;
-	}
+      [tagsArray.map((tag) => [projectObject.name, tag])]
+    );
+    console.log("tag query", updateTagsQuery);
+    await elasticClient.index({
+      index: INDEX_NAME,
+      id: projectObject.name,
+      body: {
+        ...projectObject,
+        tags: tagsArray,
+      },
+      refresh: true,
+    });
+    elasticSearc;
+    //elasticSearchResync();
+  } catch (error) {
+    console.log(error);
+    return error;
+  }
 }
 
 /* req.body format when passed as the project object to the updateProject(projObject) function
@@ -256,109 +256,138 @@ export async function insertProject(projectObject, tagsObject) {
     */
 
 export async function updateProject(projectObject) {
-	console.log(
-		"update being called, logging the passed in object",
-		projectObject
-	);
-	try {
-		const fields = [
-			"name",
-			"description",
-			"longDescription",
-			"status",
-			"pictureURL",
-			"githubURL",
-			"deploymentURL",
-			"obsidianURL",
-			"carouselImage_1",
-			"carouselImage_2",
-			"carouselImage_3",
-		];
+  console.log(
+    "update being called, logging the passed in object",
+    projectObject
+  );
+  try {
+    const fields = [
+      "name",
+      "description",
+      "longDescription",
+      "status",
+      "pictureURL",
+      "githubURL",
+      "deploymentURL",
+      "obsidianURL",
+      "carouselImage_1",
+      "carouselImage_2",
+      "carouselImage_3",
+    ];
 
-		// Build dynamic SET clause and parameters
-		let setClauses = [];
-		let values = [];
+    // Build dynamic SET clause and parameters
+    let setClauses = [];
+    let values = [];
 
-		for (const field of fields) {
-			if (projectObject[field] !== undefined && projectObject[field] !== null) {
-				setClauses.push(`${field} = ?`);
-				values.push(projectObject[field]);
-			}
-		}
+    for (const field of fields) {
+      if (projectObject[field] !== undefined && projectObject[field] !== null) {
+        setClauses.push(`${field} = ?`);
+        values.push(projectObject[field]);
+      }
+    }
 
-		// Add WHERE clause value
-		values.push(projectObject.originalName);
+    // Add WHERE clause value
+    values.push(projectObject.originalName);
 
-		const updateSQL = `
+    const updateSQL = `
         UPDATE Projects
         SET ${setClauses.join(", ")}
         WHERE Projects.name = ?
         `;
 
-		const updateProjectQuery = await DB.query(updateSQL, values);
-		console.log("update proj query", updateProjectQuery, updateSQL);
-		let tagsArray = projectObject.tags.split("-");
-		console.log(tagsArray);
-		let deleteCurrentTagsQuery = await DB.query(
-			`
+    const updateProjectQuery = await DB.query(updateSQL, values);
+    console.log("update proj query", updateProjectQuery, updateSQL);
+    let tagsArray = projectObject.tags.split("-");
+    console.log(tagsArray);
+    let deleteCurrentTagsQuery = await DB.query(
+      `
                 DELETE FROM ProjectTags
                 WHERE name = ?
             `,
-			[projectObject.originalName]
-		);
-		let updateTagsQuery = await DB.query(
-			`
+      [projectObject.originalName]
+    );
+    let updateTagsQuery = await DB.query(
+      `
                 INSERT INTO ProjectTags VALUES ?
             `,
-			[tagsArray.map((tag) => [projectObject.name, tag])]
-		);
-		console.log("tag query", updateTagsQuery);
-		/* await elasticClient.delete({
-			index: INDEX_NAME,
-			id: projectObject.originalName,
-			refresh: true,
-		}); */
-		/* await elasticClient.index({
-			index: INDEX_NAME,
-			id: projectObject.name,
-			body: {
-				...projectObject,
-				tags: tagsArray,
-			},
-			refresh: true,
-		}); */
-		elasticSearchResync();
-	} catch (error) {
-		console.log(error);
-		return error;
-	}
+      [tagsArray.map((tag) => [projectObject.name, tag])]
+    );
+    console.log("tag query", updateTagsQuery);
+
+    //  the problem is that the API that returns the project object
+    //  only returns the changed fields, as a result if i only call the update
+    //  function the data not changed will be lost
+    if (projectObject.originalName != projectObject.name) {
+      let { body: currentDoc } = await elasticClient.get({
+        index: INDEX_NAME,
+        id: projectObject.originalName,
+      });
+      projectObject = {
+        ...currentDoc._source,
+        ...projectObject,
+        tags: tagsArray,
+      };
+      await elasticClient.delete({
+        index: INDEX_NAME,
+        id: projectObject.originalName,
+        refresh: true,
+      });
+      await elasticClient.index({
+        index: INDEX_NAME,
+        id: projectObject.name,
+        body: {
+          ...projectObject,
+        },
+        refresh: true,
+        // this is gonna have the same problem only the changed
+        // fields will be there have to figure out how to fix this
+      });
+    } else {
+      await elasticClient.update({
+        index: INDEX_NAME,
+        id: projectObject.name,
+        body: {
+          doc: {
+            ...projectObject,
+            tags: tagsArray,
+          },
+        },
+        refresh: true,
+      });
+    }
+
+    //elasticSearchResync();
+  } catch (error) {
+    console.log(error);
+    return error;
+  }
 }
 
 export async function deleteProject(projectName) {
-	try {
-		let query = await DB.query(
-			`
+  try {
+    let query = await DB.query(
+      `
             DELETE FROM Projects
             WHERE Projects.name = ?
             `,
-			[projectName]
-		);
-		console.log(query[0]);
-		await elasticClient.delete({
-			index: INDEX_NAME,
-			id: projectName,
-		});
+      [projectName]
+    );
+    console.log(query[0]);
+    await elasticClient.delete({
+      index: INDEX_NAME,
+      id: projectName,
+    });
 
-		await elasticClient.indices.refresh({ index: INDEX_NAME });
-	} catch (error) {
-		console.log("error in delete project", error);
-	}
+    await elasticClient.indices.refresh({ index: INDEX_NAME });
+  } catch (error) {
+    console.log("error in delete project", error);
+  }
 }
 
 export async function syncAllProjectsToElasticsearch() {
-	try {
-		// 1. Get all projects
-		const [projects] = await DB.query(`
+  try {
+    // 1. Get all projects
+    const [projects] = await DB.query(`
 			SELECT 
 				name, description, longDescription, status, pictureURL, 
 				githubURL, deploymentURL, obsidianURL, 
@@ -366,66 +395,66 @@ export async function syncAllProjectsToElasticsearch() {
 			FROM Projects
 		`);
 
-		for (const project of projects) {
-			// 2. Get tags for each project
-			const [tagsRows] = await DB.query(
-				`
+    for (const project of projects) {
+      // 2. Get tags for each project
+      const [tagsRows] = await DB.query(
+        `
 				SELECT tag FROM ProjectTags WHERE name = ?
 			`,
-				[project.name]
-			);
+        [project.name]
+      );
 
-			const tagsArray = tagsRows.map((row) => row.tag);
+      const tagsArray = tagsRows.map((row) => row.tag);
 
-			// 3. Index in Elasticsearch
-			await elasticClient.index({
-				index: INDEX_NAME,
-				id: project.name,
-				body: {
-					...project,
-					tags: tagsArray,
-				},
-				refresh: true,
-			});
-		}
+      // 3. Index in Elasticsearch
+      await elasticClient.index({
+        index: INDEX_NAME,
+        id: project.name,
+        body: {
+          ...project,
+          tags: tagsArray,
+        },
+        refresh: true,
+      });
+    }
 
-		console.log(`Synced ${projects.length} projects to Elasticsearch.`);
-	} catch (err) {
-		console.error("Failed to sync projects to Elasticsearch:", err);
-	}
+    console.log(`Synced ${projects.length} projects to Elasticsearch.`);
+  } catch (err) {
+    console.error("Failed to sync projects to Elasticsearch:", err);
+  }
 }
 export async function deleteAllProjectsFromElasticsearch() {
-	try {
-		console.log("🗑️  Deleting all existing documents...");
-		await elasticClient.deleteByQuery({
-			index: INDEX_NAME,
-			body: {
-				query: {
-					match_all: {},
-				},
-			},
-			refresh: true,
-			wait_for_completion: true,
-			conflicts: "proceed",
-		});
-		console.log("All documents deleted");
-	} catch (deleteErr) {
-		if (deleteErr.meta?.statusCode === 404) {
-			console.log("Index was empty or doesn't exist");
-		}
-		console.error("Failed to delete documents:", deleteErr);
-		throw deleteErr;
-	}
+  try {
+    console.log("🗑️  Deleting all existing documents...");
+    await elasticClient.deleteByQuery({
+      index: INDEX_NAME,
+      body: {
+        query: {
+          match_all: {},
+        },
+      },
+      refresh: true,
+      wait_for_completion: true,
+      conflicts: "proceed",
+    });
+    console.log("All documents deleted");
+  } catch (deleteErr) {
+    if (deleteErr.meta?.statusCode === 404) {
+      console.log("Index was empty or doesn't exist");
+    }
+    console.error("Failed to delete documents:", deleteErr);
+    throw deleteErr;
+  }
 }
 async function elasticSearchResync() {
-	try {
-		await deleteAllProjectsFromElasticsearch();
-		await syncAllProjectsToElasticsearch();
-		const mapping = await elasticClient.indices.getMapping({
-			index: "projects",
-		});
-		console.log(JSON.stringify("elasticSearch mapping", mapping, null, 2));
-	} catch (error) {
-		console.log(error);
-	}
+  try {
+    await deleteAllProjectsFromElasticsearch();
+    await syncAllProjectsToElasticsearch();
+    const mapping = await elasticClient.indices.getMapping({
+      index: "projects",
+    });
+    console.log(JSON.stringify("elasticSearch mapping", mapping, null, 2));
+  } catch (error) {
+    console.log(error);
+  }
 }
