@@ -1,7 +1,7 @@
 services:
   backend:
     image: nikanostovan/personal_website_backend:latest
-    container_name: api-gateway-backend
+    container_name: PWB
     restart: unless-stopped
     ports:
       - "8080:8080"
