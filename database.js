@@ -227,7 +227,7 @@ export async function insertProject(projectObject, tagsObject) {
       },
       refresh: true,
     });
-    elasticSearc;
+    return;
     //elasticSearchResync();
   } catch (error) {
     console.log(error);
@@ -465,6 +465,6 @@ async function elasticSearchResync() {
  * @returns {string} The CloudFront CDN URL
  */
 export function toCDN(s3Url) {
-  console.log("CDN function being called on url", s3Url);
+  //console.log("CDN function being called on url", s3Url);
   return s3Url.replace(process.env.S3_BUCKET_URL, process.env.CLOUDFRONT_URL);
 }

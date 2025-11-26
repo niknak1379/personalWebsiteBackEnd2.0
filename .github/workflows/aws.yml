@@ -1,0 +1,107 @@
+name: Deploy Docker Image to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: .env
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.9.0
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_ACCESSTOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: |
+            nikanostovan/personal_website_backend:latest
+            nikanostovan/personal_website_backend:${{ github.sha }}
+          cache-from: type=registry,ref=nikanostovan/personal_website_backend:latest
+          cache-to: type=inline
+
+      - name: Add EC2 to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.EC2_INSTANCE_IP }} >> ~/.ssh/known_hosts
+
+      - name: Install SSH Key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Create .env file
+        run: |
+          cat > .env << EOL
+          NODE_ENV=production
+          PORT=8080
+
+          # Database
+          MYSQL_HOST=${{ secrets.MYSQL_HOST }}
+          MYSQL_USER=${{ secrets.MYSQL_USER }}
+          MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}
+          MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}
+
+          # JWT Secrets
+          ACCESS_TOKEN_SECRET=${{ secrets.ACCESS_TOKEN_SECRET }}
+          REFRESH_TOKEN_SECRET=${{ secrets.REFRESH_TOKEN_SECRET }}
+
+          # Google OAuth
+          GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_CALLBACK_URL=${{ secrets.GOOGLE_CALLBACK_URL }}
+
+          # S3
+          S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }}
+          S3_BUCKET_REGION=${{ secrets.S3_BUCKET_REGION }}
+          S3_ACCESS_KEY=${{ secrets.S3_ACCESS_KEY }}
+          S3_SECRET_ACCESS_KEY=${{ secrets.S3_SECRET_ACCESS_KEY }}
+          S3_PROJECT_DIR=${{ secrets.S3_PROJECT_DIR }}
+          S3_IMG_URL_PREFIX=${{ secrets.S3_IMG_URL_PREFIX }}
+          S3_BUCKET_URL=${{ secrets.S3_BUCKET_URL }}
+
+          # CloudFront
+          CLOUDFRONT_URL=${{ secrets.CLOUDFRONT_URL }}
+
+          # OpenSearch/Elasticsearch
+          SEARCH_USER=${{ secrets.SEARCH_USER }}
+          SEARCH_PASS=${{ secrets.SEARCH_PASS }}
+          SEARCH_ENDPOINT=${{ secrets.SEARCH_ENDPOINT }}
+
+          # Lambda
+          LAMBDA_URL=${{ secrets.LAMBDA_URL }}
+          EOL
+
+      - name: Copy files to EC2
+        run: |
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_INSTANCE_IP }} "mkdir -p ~/PWB"
+          scp docker-compose.yml ${{ secrets.EC2_USER }}@${{ secrets.EC2_INSTANCE_IP }}:~/PWB/
+          scp .env ${{ secrets.EC2_USER }}@${{ secrets.EC2_INSTANCE_IP }}:~/PWB/
+
+      - name: Deploy with docker-compose
+        run: |
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_INSTANCE_IP }} << 'EOF'
+            cd ~/PWB
+            docker-compose pull
+            docker-compose down
+            docker-compose up -d
+            echo "Running containers:"
+            docker-compose ps
+            echo "Container logs:"
+            docker-compose logs --tail=50
+            docker image prune -f
+          EOF

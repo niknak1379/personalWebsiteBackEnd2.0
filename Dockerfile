@@ -1,20 +1,22 @@
-# Use official Node.js 20.12 base image
-FROM node:20.12
+FROM node:20-alpine
 
-# Create and set working directory
 WORKDIR /app
 
-# Copy dependency files first
+# Copy package files
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm ci
 
-# Copy the rest of the app
+# Copy application code
 COPY . .
 
-# Expose the backend port
+# Expose port 8080
 EXPOSE 8080
 
-# Start the server
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:8080/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+
+# Start application
 CMD ["node", "index.js"]

@@ -171,18 +171,22 @@ app.get("/:name/:status/:tags/:numberRequested", async (req, res) => {
 app.get("/projectDetails/:projectName", async (req, res) => {
   //const projectDetails = await getProjectDetails(req.params.projectName);
   //console.log('logging project details from get project',projectDetails)
-  let { body: currentDoc } = await elasticClient.get({
-    index: INDEX_NAME,
-    id: req.params.projectName,
-  });
-  //process urls and change to the CDN version
-  let projectDetails = currentDoc._source;
-  projectDetails.pictureURL = toCDN(projectDetails.pictureURL);
-  projectDetails.carouselImage_1 = toCDN(projectDetails.carouselImage_1);
-  projectDetails.carouselImage_2 = toCDN(projectDetails.carouselImage_2);
-  projectDetails.carouselImage_3 = toCDN(projectDetails.carouselImage_3);
+  try {
+    let { body: currentDoc } = await elasticClient.get({
+      index: INDEX_NAME,
+      id: req.params.projectName,
+    });
+    //process urls and change to the CDN version
+    let projectDetails = currentDoc._source;
+    projectDetails.pictureURL = toCDN(projectDetails.pictureURL);
+    projectDetails.carouselImage_1 = toCDN(projectDetails.carouselImage_1);
+    projectDetails.carouselImage_2 = toCDN(projectDetails.carouselImage_2);
+    projectDetails.carouselImage_3 = toCDN(projectDetails.carouselImage_3);
 
-  res.send(projectDetails);
+    res.send(projectDetails);
+  } catch (e) {
+    res.send(e).status(500);
+  }
 });
 /*
 expected returned data format, array of JSON objects in the following format
@@ -310,13 +314,15 @@ app.put(
       for (const photo of photoArr) {
         // Create FormData and add the file
         const formData = new FormData();
-        const file = new File([photo.buffer], photo.originalname, {
-          type: photo.mimetype,
-        });
-        formData.append(photo.fieldname, file);
+        const blob = new Blob([photo.buffer], { type: photo.mimetype });
+        formData.append("file", blob, photo.originalname);
 
-        // Call resize and format API
-        const response = await fetch("http://localhost:5000/changeFormat", {
+        // Add metadata for the Lambda function
+        formData.append("fieldname", photo.fieldname);
+        formData.append("projectName", req.body.name);
+
+        // Call Lambda function - it processes AND uploads
+        const response = await fetch(process.env.LAMBDA_URL + "/changeFormat", {
           method: "POST",
           body: formData,
         });
@@ -325,32 +331,13 @@ app.put(
           throw new Error(`Format API returned ${response.status}`);
         }
 
-        const arrayBuffer = await response.arrayBuffer();
-        const convertedImageBuffer = Buffer.from(arrayBuffer);
-
-        // Upload to S3 with converted image
-        const command = new PutObjectCommand({
-          Bucket: process.env.S3_BUCKET_NAME,
-          Key:
-            process.env.S3_PROJECT_DIR +
-            req.body.name +
-            "/" +
-            photo.fieldname +
-            ".avif",
-          Body: convertedImageBuffer,
-          ContentType: "image/avif",
-        });
-
-        console.log("Uploading to S3:", command);
-        await S3.send(command);
+        // Lambda returns just the S3 key/URL
+        const result = await response.json();
 
         // Store the S3 URL
-        req.body[photo.fieldname] =
-          process.env.S3_IMG_URL_PREFIX +
-          req.body.name +
-          `/${photo.fieldname}.avif`;
-
-        console.log("After S3 upload:", req.body);
+        req.body[photo.fieldname] = result.s3_URL;
+        console.log("lambda result:", result);
+        console.log(`Uploaded ${photo.fieldname}:`, result.s3_URL);
       }
 
       // Update project after all images are processed
@@ -364,7 +351,7 @@ app.put(
 );
 app.post(
   "/newProject",
-  //validateTokenMiddleware,
+  validateTokenMiddleware,
   projectImageFields,
   async (req, res) => {
     console.log(req.files);
@@ -382,10 +369,14 @@ app.post(
         // Create FormData and add the file
         const formData = new FormData();
         const blob = new Blob([photo.buffer], { type: photo.mimetype });
-        formData.append(photo.fieldname, blob, photo.originalname);
+        formData.append("file", blob, photo.originalname);
 
-        // Call resize and format API
-        const response = await fetch("http://localhost:5000/changeFormat", {
+        // Add metadata for the Lambda function
+        formData.append("fieldname", photo.fieldname);
+        formData.append("projectName", req.body.name);
+        //console.log(process.env.LAMBDA_URL + "/changeFormat");
+        // Call Lambda function - it process and upload to s3
+        const response = await fetch(process.env.LAMBDA_URL + "/changeFormat", {
           method: "POST",
           body: formData,
         });
@@ -394,35 +385,17 @@ app.post(
           throw new Error(`Format API returned ${response.status}`);
         }
 
-        const arrayBuffer = await response.arrayBuffer();
-        const convertedImageBuffer = Buffer.from(arrayBuffer);
-
-        // Upload to S3 with converted image
-        const command = new PutObjectCommand({
-          Bucket: process.env.S3_BUCKET_NAME,
-          Key:
-            process.env.S3_PROJECT_DIR +
-            req.body.name +
-            "/" +
-            photo.fieldname +
-            ".avif",
-          Body: convertedImageBuffer,
-          ContentType: "image/avif",
-        });
-
-        console.log("Uploading to S3:", command);
-        await S3.send(command);
+        // Lambda returns just the S3 key/URL
+        const result = await response.json();
 
         // Store the S3 URL
-        req.body[photo.fieldname] =
-          process.env.S3_IMG_URL_PREFIX +
-          req.body.name +
-          `/${photo.fieldname}.avif`;
+        req.body[photo.fieldname] = result.s3_URL;
 
-        console.log("After S3 upload:", req.body);
+        console.log(`Uploaded ${photo.fieldname}:`, result.s3_URL);
       }
 
       // Insert project after all images are processed
+      console.log("logging adding project", req.body);
       await insertProject(req.body);
       res.send("Project created successfully");
     } catch (error) {
@@ -432,8 +405,12 @@ app.post(
   }
 );
 
-app.get("/healthCheck", (req, res) => {
-  res.send("healthy", 200);
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "healthy",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+  });
 });
 
 app.listen(8080, () => {
