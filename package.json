@@ -12,6 +12,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@aws-sdk/client-lambda": "^3.940.0",
     "@aws-sdk/client-s3": "^3.787.0",
     "@opensearch-project/opensearch": "^3.5.1",
     "bcrypt": "^5.1.1",

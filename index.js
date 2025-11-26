@@ -14,19 +14,17 @@ import cors from "cors";
 import multer from "multer";
 import cookieParser from "cookie-parser";
 import auth from "./Routes/authentication.js";
-import {
-  DeleteObjectCommand,
-  DeleteObjectsCommand,
-  PutObjectAclCommand,
-  PutObjectCommand,
-  S3Client,
-} from "@aws-sdk/client-s3";
+import { DeleteObjectsCommand, S3Client } from "@aws-sdk/client-s3";
+import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
 import sanitizer from "perfect-express-sanitizer";
 import elasticClient from "./elasticSearchClient.js";
-
+import util from "node:util";
 const app = express();
 const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
+const upload = multer(
+  { storage: storage },
+  { limits: { fileSize: 5 * 1024 * 1024 } }
+); // 5MB limit);
 const INDEX_NAME = "projects";
 app.use("/", auth);
 app.use(express.json());
@@ -310,34 +308,39 @@ app.put(
     });
 
     try {
-      // Process each photo sequentially
+      const config = {
+        region: "us-east-2",
+      }; // type is LambdaClientConfig
+      const client = new LambdaClient(config);
+
+      // Process each photo
       for (const photo of photoArr) {
-        // Create FormData and add the file
-        const formData = new FormData();
-        const blob = new Blob([photo.buffer], { type: photo.mimetype });
-        formData.append("file", blob, photo.originalname);
-
-        // Add metadata for the Lambda function
-        formData.append("fieldname", photo.fieldname);
-        formData.append("projectName", req.body.name);
-
-        // Call Lambda function - it processes AND uploads
-        const response = await fetch(process.env.LAMBDA_URL + "/changeFormat", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!response.ok) {
-          throw new Error(`Format API returned ${response.status}`);
+        let payloadContents = {
+          data: photo.buffer.toString("base64"),
+          fieldname: photo.fieldname,
+          projectName: req.body.name,
+        };
+        const input = {
+          FunctionName: "imageDecoder",
+          InvocationType: "RequestResponse",
+          Payload: JSON.stringify(payloadContents),
+          LogType: "Tail",
+        };
+        const command = new InvokeCommand(input);
+        const response = await client.send(command);
+        if (response.StatusCode != 200) {
+          throw new Error(`Format API returned ${response.FunctionError}`);
         }
 
         // Lambda returns just the S3 key/URL
-        const result = await response.json();
+        // it returns it in a Uint8ArrayBlobAdapter format so
+        // has to be converted.
+        const result = JSON.parse(Buffer.from(response.Payload).toString());
+        // console.log("result objects:", result, result.body);
+        // Store the S3 URL in req.body to be pased to the DB
+        req.body[photo.fieldname] = JSON.parse(result.body).url;
 
-        // Store the S3 URL
-        req.body[photo.fieldname] = result.s3_URL;
-        console.log("lambda result:", result);
-        console.log(`Uploaded ${photo.fieldname}:`, result.s3_URL);
+        console.log(`Uploaded ${photo.fieldname}:`, req.body[photo.fieldname]);
       }
 
       // Update project after all images are processed
@@ -364,34 +367,39 @@ app.post(
     ];
 
     try {
+      const config = {
+        region: "us-east-2",
+      }; // type is LambdaClientConfig
+      const client = new LambdaClient(config);
+
       // Process each photo
       for (const photo of photoArr) {
-        // Create FormData and add the file
-        const formData = new FormData();
-        const blob = new Blob([photo.buffer], { type: photo.mimetype });
-        formData.append("file", blob, photo.originalname);
-
-        // Add metadata for the Lambda function
-        formData.append("fieldname", photo.fieldname);
-        formData.append("projectName", req.body.name);
-        //console.log(process.env.LAMBDA_URL + "/changeFormat");
-        // Call Lambda function - it process and upload to s3
-        const response = await fetch(process.env.LAMBDA_URL + "/changeFormat", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!response.ok) {
-          throw new Error(`Format API returned ${response.status}`);
+        let payloadContents = {
+          data: photo.buffer.toString("base64"),
+          fieldname: photo.fieldname,
+          projectName: req.body.name,
+        };
+        const input = {
+          FunctionName: "imageDecoder",
+          InvocationType: "RequestResponse",
+          Payload: JSON.stringify(payloadContents),
+          LogType: "Tail",
+        };
+        const command = new InvokeCommand(input);
+        const response = await client.send(command);
+        if (response.StatusCode != 200) {
+          throw new Error(`Format API returned ${response.FunctionError}`);
         }
 
         // Lambda returns just the S3 key/URL
-        const result = await response.json();
+        // it returns it in a Uint8ArrayBlobAdapter format so
+        // has to be converted.
+        const result = JSON.parse(Buffer.from(response.Payload).toString());
+        // console.log("result objects:", result, result.body);
+        // Store the S3 URL in req.body to be pased to the DB
+        req.body[photo.fieldname] = JSON.parse(result.body).url;
 
-        // Store the S3 URL
-        req.body[photo.fieldname] = result.s3_URL;
-
-        console.log(`Uploaded ${photo.fieldname}:`, result.s3_URL);
+        console.log(`Uploaded ${photo.fieldname}:`, req.body[photo.fieldname]);
       }
 
       // Insert project after all images are processed
