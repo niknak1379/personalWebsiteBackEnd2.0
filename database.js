@@ -136,7 +136,7 @@ export async function getProjectDetails(projectName) {
     `
         SELECT longDescription, description, status, githubURL, 
         deploymentURL, pictureURL, carouselImage_1, 
-        carouselImage_2, carouselImage_3, obsidianURL
+        carouselImage_2, carouselImage_3, obsidianURL, creationDate, lastModified
         FROM Projects
         WHERE Projects.name = ?
         `,
@@ -178,7 +178,9 @@ export async function insertProject(projectObject, tagsObject) {
             obsidianURL,
             carouselImage_1,
             carouselImage_2,
-            carouselImage_3
+            carouselImage_3,
+            creationDate,
+            lastModified
             )
             VALUES (
             ? ,
@@ -191,6 +193,8 @@ export async function insertProject(projectObject, tagsObject) {
             ? ,
             ? ,
             ? ,
+            ?,
+            ?,
             ?
             );
         `,
@@ -207,6 +211,8 @@ export async function insertProject(projectObject, tagsObject) {
         projectObject.carouselImage_2,
         projectObject.carouselImage_3,
         projectObject.originalName,
+        projectObject.creationDate,
+        projectObject.lastModified
       ]
     );
     let tagsArray = projectObject.tags.split("-");
@@ -273,6 +279,8 @@ export async function updateProject(projectObject) {
       "carouselImage_1",
       "carouselImage_2",
       "carouselImage_3",
+      "creationDate",
+      "lastModified"
     ];
 
     // Build dynamic SET clause and parameters
@@ -339,8 +347,6 @@ export async function updateProject(projectObject) {
           ...projectObject,
         },
         refresh: true,
-        // this is gonna have the same problem only the changed
-        // fields will be there have to figure out how to fix this
       });
     } else {
       await elasticClient.update({
@@ -391,7 +397,7 @@ export async function syncAllProjectsToElasticsearch() {
 			SELECT 
 				name, description, longDescription, status, pictureURL, 
 				githubURL, deploymentURL, obsidianURL, 
-				carouselImage_1, carouselImage_2, carouselImage_3
+				carouselImage_1, carouselImage_2, carouselImage_3, creationDate, lastModified
 			FROM Projects
 		`);
 
@@ -425,7 +431,7 @@ export async function syncAllProjectsToElasticsearch() {
 }
 export async function deleteAllProjectsFromElasticsearch() {
   try {
-    console.log("🗑️  Deleting all existing documents...");
+    console.log("Deleting all existing documents...");
     await elasticClient.deleteByQuery({
       index: INDEX_NAME,
       body: {
@@ -453,12 +459,12 @@ async function elasticSearchResync() {
     const mapping = await elasticClient.indices.getMapping({
       index: "projects",
     });
-    console.log(JSON.stringify("elasticSearch mapping", mapping, null, 2));
+    console.log("elastic Search Mapping:", (mapping.body.projects.mappings));
   } catch (error) {
     console.log(error);
   }
 }
-
+// elasticSearchResync();
 /**
  * Converts an S3 URL to CloudFront CDN URL
  * @param {string} s3Url - The full S3 URL

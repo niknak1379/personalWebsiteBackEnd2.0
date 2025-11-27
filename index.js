@@ -65,10 +65,10 @@ expected returned data format, array of JSON objects in the following format
     }
     ]
 */
-app.get("/:name/:status/:tags/:numberRequested", async (req, res) => {
+app.get("/:name/:status/:tags/:numberRequested/:pageNumber", async (req, res) => {
   //send in space for an empty paramter
 
-  const { name, status, tags, numberRequested } = req.params;
+  const { name, status, tags, numberRequested, pageNumber } = req.params;
 
   const searchQuery = name === " " ? "" : name;
 
@@ -96,11 +96,7 @@ app.get("/:name/:status/:tags/:numberRequested", async (req, res) => {
         fuzziness: "AUTO",
       },
     });
-  } //else {
-  //query.bool.must.push({
-  //	match_all: {},
-  //});
-  //}
+  } 
 
   // filter by status (always applied)
   query.bool.filter.push({
@@ -119,14 +115,25 @@ app.get("/:name/:status/:tags/:numberRequested", async (req, res) => {
   }
   console.log("query", JSON.stringify(query));
   try {
+    // https://github.com/opensearch-project/opensearch-js/blob/main/guides/search.md
     const result = await elasticClient.search({
       index: INDEX_NAME,
+      from: Number(pageNumber),
       size: Number(numberRequested) || 10,
       body: {
         query: query,
+        sort: [{
+        'creationDate': {
+          order: 'desc'
+        },
+        'lastModified': {
+          order: 'desc'
+        }
+      }]
       },
+     
     });
-    console.log("result of query", result.body.hits);
+    console.log("result  of query", result.body.hits);
     const projects = result.body.hits.hits.map((hit) => ({
       id: hit._id,
       ...hit._source,
@@ -141,10 +148,10 @@ app.get("/:name/:status/:tags/:numberRequested", async (req, res) => {
       projectDetails.carouselImage_3 = toCDN(projectDetails.carouselImage_3);
     });
     console.log("logging batch returned projects from ES", projects);
-    res.send(projects);
+    res.send({"projects" : projects, "totalHits" : result.body.hits.total.value });
   } catch (error) {
     console.log("elastic search failed, in get", error);
-    res.send("get failed, elastic Search node down", 500);
+    res.send("get failed, elastic Search node down").status(500);
   }
 });
 
@@ -153,7 +160,7 @@ app.get("/:name/:status/:tags/:numberRequested", async (req, res) => {
     {
         longDescription: 'Website Showcasing the student organization, its members, events and projects, and resources for those interested in the club.\n' +
             'It is written in react and mostly uses Tailwind for styling. Does not have any app functionality or dedicated APIs as of yet, \n' +
-            'will most likely add a custom mailing list app to it for the club to use. Mostly focused on desiging and CSS on thisi project.\n' +
+            'well most likely add a custom mailing list app to it for the club to use. Mostly focused on desiging and CSS on thisi project.\n' +
             'Also if you are reading this please donate to the club through the venmo link it is much appreciated :)',
         status: 'Complete',
         githubURL: 'https://github.com/niknak1379/pasa-website',
