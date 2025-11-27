@@ -65,95 +65,99 @@ expected returned data format, array of JSON objects in the following format
     }
     ]
 */
-app.get("/:name/:status/:tags/:numberRequested/:pageNumber", async (req, res) => {
-  //send in space for an empty paramter
+app.get(
+  "/:name/:status/:tags/:numberRequested/:pageNumber",
+  async (req, res) => {
+    //send in space for an empty paramter
 
-  const { name, status, tags, numberRequested, pageNumber } = req.params;
+    const { name, status, tags, numberRequested, pageNumber } = req.params;
 
-  const searchQuery = name === " " ? "" : name;
+    const searchQuery = name === " " ? "" : name;
 
-  const statusArray =
-    status === " "
-      ? ["In Progress", "Complete", "To Be Started"]
-      : status.split("-");
+    const statusArray =
+      status === " "
+        ? ["In Progress", "Complete", "To Be Started"]
+        : status.split("-");
 
-  const tagArray = tags === " " ? [] : tags.split("-");
+    const tagArray = tags === " " ? [] : tags.split("-");
 
-  const query = {
-    bool: {
-      must: [],
-      should: [],
-      filter: [],
-    },
-  };
-
-  // full-text match on name, description, etc.
-  if (searchQuery) {
-    query.bool.must.push({
-      multi_match: {
-        query: searchQuery,
-        fields: ["name", "description", "longDescription", "tags"],
-        fuzziness: "AUTO",
+    const query = {
+      bool: {
+        must: [],
+        should: [],
+        filter: [],
       },
-    });
-  } 
+    };
 
-  // filter by status (always applied)
-  query.bool.filter.push({
-    terms: {
-      "status.keyword": statusArray,
-    },
-  });
+    // full-text match on name, description, etc.
+    if (searchQuery) {
+      query.bool.must.push({
+        multi_match: {
+          query: searchQuery,
+          fields: ["name", "description", "longDescription", "tags"],
+          fuzziness: "AUTO",
+        },
+      });
+    }
 
-  // filter by tags, if present and not ALL
-  if (tagArray.length > 0 && !tagArray.includes("ALL")) {
+    // filter by status (always applied)
     query.bool.filter.push({
       terms: {
-        "tags.keyword": tagArray,
+        "status.keyword": statusArray,
       },
     });
-  }
-  console.log("query", JSON.stringify(query));
-  try {
-    // https://github.com/opensearch-project/opensearch-js/blob/main/guides/search.md
-    const result = await elasticClient.search({
-      index: INDEX_NAME,
-      from: Number(pageNumber),
-      size: Number(numberRequested) || 10,
-      body: {
-        query: query,
-        sort: [{
-        'creationDate': {
-          order: 'desc'
-        },
-        'lastModified': {
-          order: 'desc'
-        }
-      }]
-      },
-     
-    });
-    console.log("result  of query", result.body.hits);
-    const projects = result.body.hits.hits.map((hit) => ({
-      id: hit._id,
-      ...hit._source,
-      score: hit._score,
-    }));
 
-    projects.forEach((projectDetails) => {
-      console.log("logging from inside the proj", projectDetails);
-      projectDetails.pictureURL = toCDN(projectDetails.pictureURL);
-      projectDetails.carouselImage_1 = toCDN(projectDetails.carouselImage_1);
-      projectDetails.carouselImage_2 = toCDN(projectDetails.carouselImage_2);
-      projectDetails.carouselImage_3 = toCDN(projectDetails.carouselImage_3);
-    });
-    console.log("logging batch returned projects from ES", projects);
-    res.send({"projects" : projects, "totalHits" : result.body.hits.total.value });
-  } catch (error) {
-    console.log("elastic search failed, in get", error);
-    res.send("get failed, elastic Search node down").status(500);
+    // filter by tags, if present and not ALL
+    if (tagArray.length > 0 && !tagArray.includes("ALL")) {
+      query.bool.filter.push({
+        terms: {
+          "tags.keyword": tagArray,
+        },
+      });
+    }
+    console.log("query", JSON.stringify(query));
+    try {
+      // https://github.com/opensearch-project/opensearch-js/blob/main/guides/search.md
+      const result = await elasticClient.search({
+        index: INDEX_NAME,
+        from: Number(pageNumber),
+        size: Number(numberRequested) || 10,
+        body: {
+          query: query,
+          sort: [
+            {
+              creationDate: {
+                order: "desc",
+              },
+              lastModified: {
+                order: "desc",
+              },
+            },
+          ],
+        },
+      });
+      console.log("result  of query", result.body.hits);
+      const projects = result.body.hits.hits.map((hit) => ({
+        id: hit._id,
+        ...hit._source,
+        score: hit._score,
+      }));
+
+      projects.forEach((projectDetails) => {
+        console.log("logging from inside the proj", projectDetails);
+        projectDetails.pictureURL = toCDN(projectDetails.pictureURL);
+        projectDetails.carouselImage_1 = toCDN(projectDetails.carouselImage_1);
+        projectDetails.carouselImage_2 = toCDN(projectDetails.carouselImage_2);
+        projectDetails.carouselImage_3 = toCDN(projectDetails.carouselImage_3);
+      });
+      console.log("logging batch returned projects from ES", projects);
+      res.send({ projects: projects, totalHits: result.body.hits.total.value });
+    } catch (error) {
+      console.log("elastic search failed, in get", error);
+      res.send("get failed, elastic Search node down").status(500);
+    }
   }
-});
+);
 
 /*
     Expected output strutcture:
@@ -317,6 +321,10 @@ app.put(
     try {
       const config = {
         region: "us-east-2",
+        credentials: {
+          accessKeyId: process.env.S3_ACCESS_KEY,
+          secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+        },
       }; // type is LambdaClientConfig
       const client = new LambdaClient(config);
 
@@ -376,6 +384,10 @@ app.post(
     try {
       const config = {
         region: "us-east-2",
+        credentials: {
+          accessKeyId: process.env.S3_ACCESS_KEY,
+          secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+        },
       }; // type is LambdaClientConfig
       const client = new LambdaClient(config);
 
