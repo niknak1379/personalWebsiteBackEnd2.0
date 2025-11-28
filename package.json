@@ -5,7 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev": "npx nodemon index.js",
+    "dev": "doppler run -- npx nodemon index.js",
     "debug": "npx nodemon --inspect --trace-warnings index.js"
   },
   "keywords": [],
