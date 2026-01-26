@@ -5,69 +5,73 @@ import express from "express";
 import jwt from "jsonwebtoken";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import logger from "../logger.js";
 
 const app = express.Router();
 app.use(express.json());
 app.use(cookieParser());
 app.use(
-	cors({
-		origin: [
-			"http://localhost:3000",
-			"http://localhost:80",
-			"https://www.nikanostovan.dev",
-			"https://nikanostovan.dev",
-		],
-		credentials: true,
-	})
+  cors({
+    origin: [
+      "http://localhost:3000",
+      "http://localhost:80",
+      "https://www.nikanostovan.dev",
+      "https://nikanostovan.dev",
+    ],
+    credentials: true,
+  })
 );
 
 passport.use(
-	new Strategy(
-		{
-			clientID: process.env.GOOGLE_CLIENT_ID,
-			clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-			callbackURL: process.env.GOOGLE_CALLBACK_URL,
-		},
-		async function (accessToken, refreshToken, profile, cb) {
-			try {
-				let user = await validateLogin(profile.id);
-				console.log("logging google profile", profile.id);
-				console.log("logging google profile", user);
-				if (user.name == profile.id) return cb(null, profile.id);
-				throw new error("account not authorized");
-			} catch (error) {
-				return cb(error, null);
-			}
-		}
-	)
+  new Strategy(
+    {
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: process.env.GOOGLE_CALLBACK_URL,
+    },
+    async function (accessToken, refreshToken, profile, cb) {
+      try {
+        let user = await validateLogin(profile.id);
+        logger.info("passport validation request for googld",
+          { "profileID": profile.id, "user": user })
+        if (user.name == profile.id) return cb(null, profile.id);
+        throw new error("account not authorized");
+      } catch (error) {
+
+        logger.warn("Error in passport", { "error": error })
+        return cb(error, null);
+      }
+    }
+  )
 );
 
 app.get(
-	"/auth/google",
-	passport.authenticate("google", { scope: ["profile"], session: false })
+  "/auth/google",
+  passport.authenticate("google", { scope: ["profile"], session: false })
 );
 
 app.get(
-	"/auth/google/callback",
-	passport.authenticate("google", {
-		failureRedirect: "/auth/failure",
-		session: false,
-	}),
-	async function (req, res) {
-		let accessToken = jwt.sign({}, process.env.ACCESS_TOKEN_SECRET, {
-			expiresIn: "1h",
-		});
-		let refreshToken = jwt.sign({}, process.env.REFRESH_TOKEN_SECRET);
-		res.cookie("refreshToken", refreshToken, {
-			httpOnly: true,
-			maxAge: 2592000000,
-		});
-		res.redirect("https://nikanostovan.dev");
-		//res.json({accessToken: accessToken})
-	}
+  "/auth/google/callback",
+  passport.authenticate("google", {
+    failureRedirect: "/auth/failure",
+    session: false,
+  }),
+  async function (req, res) {
+    logger.info("authenticated via google")
+    let accessToken = jwt.sign({}, process.env.ACCESS_TOKEN_SECRET, {
+      expiresIn: "1h",
+    });
+    let refreshToken = jwt.sign({}, process.env.REFRESH_TOKEN_SECRET);
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      maxAge: 2592000000,
+    });
+    res.redirect("https://nikanostovan.dev");
+  }
 );
 app.get("/auth/failure", (req, res) => {
-	res.send("failed google auth");
+  logger.warn("failed google auth")
+  res.send("failed google auth");
 });
 
 export default app;

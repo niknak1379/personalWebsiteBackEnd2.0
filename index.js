@@ -2,7 +2,6 @@ import express from "express";
 import {
   getAllStatus,
   getAllTags,
-  getProjects,
   insertProject,
   getProjectDetails,
   deleteProject,
@@ -16,9 +15,8 @@ import cookieParser from "cookie-parser";
 import auth from "./Routes/authentication.js";
 import { DeleteObjectsCommand, S3Client } from "@aws-sdk/client-s3";
 import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
-import sanitizer from "perfect-express-sanitizer";
+import logger from "./logger.js"
 import elasticClient from "./elasticSearchClient.js";
-import util from "node:util";
 const app = express();
 const storage = multer.memoryStorage();
 const upload = multer(
@@ -48,9 +46,25 @@ app.use(cors(corsOptions));
 
 app.use(cookieParser());
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  logger.error("Error Sth Crashed", { "error": err.stack })
   res.send("DataBase Crashed :(");
 });
+
+const S3 = new S3Client({
+  region: process.env.S3_BUCKET_REGION,
+  credentials: {
+    accessKeyId: process.env.S3_ACCESS_KEY,
+    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+  },
+});
+
+const projectImageFields = upload.fields([
+  { name: "pictureURL" },
+  { name: "carouselImage_1" },
+  { name: "carouselImage_2" },
+  { name: "carouselImage_3" },
+]);
+
 
 /*
 expected returned data format, array of JSON objects in the following format
@@ -81,6 +95,13 @@ app.get(
 
     const tagArray = tags === " " ? [] : tags.split("-");
 
+    logger.info("get query coming in", {
+      "name": searchQuery,
+      "status Array": statusArray,
+      "tag array": tagArray,
+      "numberRequested": numberRequested,
+      "pageNumber": pageNumber,
+    })
     const query = {
       bool: {
         must: [],
@@ -100,7 +121,7 @@ app.get(
       });
     }
 
-    // filter by status (always applied)
+    // filter by status
     query.bool.filter.push({
       terms: {
         "status.keyword": statusArray,
@@ -115,7 +136,6 @@ app.get(
         },
       });
     }
-    console.log("query", JSON.stringify(query));
     try {
       // https://github.com/opensearch-project/opensearch-js/blob/main/guides/search.md
       const result = await elasticClient.search({
@@ -136,7 +156,6 @@ app.get(
           ],
         },
       });
-      console.log("result  of query", result.body.hits);
       const projects = result.body.hits.hits.map((hit) => ({
         id: hit._id,
         ...hit._source,
@@ -144,16 +163,16 @@ app.get(
       }));
 
       projects.forEach((projectDetails) => {
-        console.log("logging from inside the proj", projectDetails);
         projectDetails.pictureURL = toCDN(projectDetails.pictureURL);
         projectDetails.carouselImage_1 = toCDN(projectDetails.carouselImage_1);
         projectDetails.carouselImage_2 = toCDN(projectDetails.carouselImage_2);
         projectDetails.carouselImage_3 = toCDN(projectDetails.carouselImage_3);
       });
-      console.log("logging batch returned projects from ES", projects);
+      logger.info("query result", { "result": projects })
+
       res.send({ projects: projects, totalHits: result.body.hits.total.value });
     } catch (error) {
-      console.log("elastic search failed, in get", error);
+      logger.error("elastic search failed, in get", { "error": error });
       res.send("get failed, elastic Search node down").status(500);
     }
   }
@@ -179,8 +198,8 @@ app.get(
 */
 app.get("/projectDetails/:projectName", async (req, res) => {
   //const projectDetails = await getProjectDetails(req.params.projectName);
-  //console.log('logging project details from get project',projectDetails)
   try {
+    logger.info("getting project details for", { "project name": req.params.projectName })
     let { body: currentDoc } = await elasticClient.get({
       index: INDEX_NAME,
       id: req.params.projectName,
@@ -192,8 +211,10 @@ app.get("/projectDetails/:projectName", async (req, res) => {
     projectDetails.carouselImage_2 = toCDN(projectDetails.carouselImage_2);
     projectDetails.carouselImage_3 = toCDN(projectDetails.carouselImage_3);
 
+    logger.info("returned project details", { "project details": projectDetails })
     res.send(projectDetails);
   } catch (e) {
+    logger.error("get project details failed", { "error": e })
     res.send(e).status(500);
   }
 });
@@ -207,8 +228,8 @@ expected returned data format, array of JSON objects in the following format
     ]
 */
 app.get("/tags", async (req, res) => {
+  logger.info("getting all tags");
   const tags = await getAllTags();
-  console.log(tags);
   res.send(tags);
 });
 /*
@@ -221,21 +242,14 @@ expected returned data format, array of JSON objects in the following format
     ]
 */
 app.get("/status", async (req, res) => {
+  logger.info("getting all status");
   const status = await getAllStatus();
-  console.log(status);
   res.send(status);
-});
-
-const S3 = new S3Client({
-  region: process.env.S3_BUCKET_REGION,
-  credentials: {
-    accessKeyId: process.env.S3_ACCESS_KEY,
-    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
-  },
 });
 
 //need to also delete the s3 path of the project as well
 app.delete("/:projectName", validateTokenMiddleware, async (req, res) => {
+  logger.info("deleting project", { "name": req.params.projectName })
   const projectDetails = await getProjectDetails(req.params.projectName);
   if (projectDetails == null) {
     res.status(403).send("project not found");
@@ -259,18 +273,11 @@ app.delete("/:projectName", validateTokenMiddleware, async (req, res) => {
       },
     })
   );
-  console.log(s3message);
-  let deletedProject = await deleteProject(req.params.projectName);
-  console.log("logging deleted project", deletedProject);
+  logger.info("s3 delete result", { "res": s3message })
+  await deleteProject(req.params.projectName);
+  console.log("deleted project");
   res.status(201).send("ok");
 });
-
-const projectImageFields = upload.fields([
-  { name: "pictureURL" },
-  { name: "carouselImage_1" },
-  { name: "carouselImage_2" },
-  { name: "carouselImage_3" },
-]);
 
 /*
         projectObject returned as the req.body
@@ -302,15 +309,14 @@ app.put(
   validateTokenMiddleware,
   projectImageFields,
   async (req, res) => {
-    console.log("files", req.files);
-
+    logger.info("updating project", { "field": req.body })
     let filesArr = req.files
       ? [
-          req.files.pictureURL,
-          req.files.carouselImage_1,
-          req.files.carouselImage_2,
-          req.files.carouselImage_3,
-        ]
+        req.files.pictureURL,
+        req.files.carouselImage_1,
+        req.files.carouselImage_2,
+        req.files.carouselImage_3,
+      ]
       : [];
 
     let photoArr = [];
@@ -351,18 +357,16 @@ app.put(
         // it returns it in a Uint8ArrayBlobAdapter format so
         // has to be converted.
         const result = JSON.parse(Buffer.from(response.Payload).toString());
-        // console.log("result objects:", result, result.body);
-        // Store the S3 URL in req.body to be pased to the DB
         req.body[photo.fieldname] = JSON.parse(result.body).url;
 
-        console.log(`Uploaded ${photo.fieldname}:`, req.body[photo.fieldname]);
+        logger.info(`Uploaded ${photo.fieldname}:`);
       }
 
       // Update project after all images are processed
       await updateProject(req.body);
       res.send("Project updated successfully");
     } catch (error) {
-      console.log("Error:", error);
+      logger.error("Error in update project", { "error": error });
       res.status(500).send(`Error: ${error.message}`);
     }
   }
@@ -372,7 +376,7 @@ app.post(
   validateTokenMiddleware,
   projectImageFields,
   async (req, res) => {
-    console.log(req.files);
+    logger.info("adding new project", { "fields": req.body });
 
     let photoArr = [
       req.files.pictureURL[0],
@@ -422,11 +426,10 @@ app.post(
       }
 
       // Insert project after all images are processed
-      console.log("logging adding project", req.body);
       await insertProject(req.body);
       res.send("Project created successfully");
     } catch (error) {
-      console.log("Error:", error);
+      logger.error("Error in adding project", { "error": error });
       res.status(500).send(`Error: ${error.message}`);
     }
   }
@@ -441,5 +444,5 @@ app.get("/health", (req, res) => {
 });
 
 app.listen(8080, () => {
-  console.log("Server running on 8080");
+  logger.info("Server running on 8080");
 });
