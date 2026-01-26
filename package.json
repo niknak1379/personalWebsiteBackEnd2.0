@@ -5,7 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev": "npx nodemon index.js",
+    "dev": "doppler run -- npx nodemon index.js",
     "debug": "npx nodemon --inspect --trace-warnings index.js"
   },
   "keywords": [],
@@ -26,6 +26,7 @@
     "nodemon": "^3.1.9",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
-    "perfect-express-sanitizer": "^2.0.2"
+    "perfect-express-sanitizer": "^2.0.2",
+    "winston": "^3.19.0"
   }
 }

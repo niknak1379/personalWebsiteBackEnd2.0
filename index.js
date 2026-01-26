@@ -2,7 +2,6 @@ import express from "express";
 import {
   getAllStatus,
   getAllTags,
-  getProjects,
   insertProject,
   getProjectDetails,
   deleteProject,
@@ -16,9 +15,8 @@ import cookieParser from "cookie-parser";
 import auth from "./Routes/authentication.js";
 import { DeleteObjectsCommand, S3Client } from "@aws-sdk/client-s3";
 import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
-import sanitizer from "perfect-express-sanitizer";
+import logger from "./logger.js"
 import elasticClient from "./elasticSearchClient.js";
-import util from "node:util";
 const app = express();
 const storage = multer.memoryStorage();
 const upload = multer(
@@ -48,9 +46,25 @@ app.use(cors(corsOptions));
 
 app.use(cookieParser());
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  logger.error("Error Sth Crashed", { "error": err.stack })
   res.send("DataBase Crashed :(");
 });
+
+const S3 = new S3Client({
+  region: process.env.S3_BUCKET_REGION,
+  credentials: {
+    accessKeyId: process.env.S3_ACCESS_KEY,
+    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+  },
+});
+
+const projectImageFields = upload.fields([
+  { name: "pictureURL" },
+  { name: "carouselImage_1" },
+  { name: "carouselImage_2" },
+  { name: "carouselImage_3" },
+]);
+
 
 /*
 expected returned data format, array of JSON objects in the following format
@@ -65,95 +79,111 @@ expected returned data format, array of JSON objects in the following format
     }
     ]
 */
-app.get("/:name/:status/:tags/:numberRequested", async (req, res) => {
-  //send in space for an empty paramter
+app.get(
+  "/:name/:status/:tags/:numberRequested/:pageNumber",
+  async (req, res) => {
+    //send in space for an empty paramter
 
-  const { name, status, tags, numberRequested } = req.params;
+    const { name, status, tags, numberRequested, pageNumber } = req.params;
 
-  const searchQuery = name === " " ? "" : name;
+    const searchQuery = name === " " ? "" : name;
 
-  const statusArray =
-    status === " "
-      ? ["In Progress", "Complete", "To Be Started"]
-      : status.split("-");
+    const statusArray =
+      status === " "
+        ? ["In Progress", "Complete", "To Be Started"]
+        : status.split("-");
 
-  const tagArray = tags === " " ? [] : tags.split("-");
+    const tagArray = tags === " " ? [] : tags.split("-");
 
-  const query = {
-    bool: {
-      must: [],
-      should: [],
-      filter: [],
-    },
-  };
-
-  // full-text match on name, description, etc.
-  if (searchQuery) {
-    query.bool.must.push({
-      multi_match: {
-        query: searchQuery,
-        fields: ["name", "description", "longDescription", "tags"],
-        fuzziness: "AUTO",
+    logger.info("get query coming in", {
+      "name": searchQuery,
+      "status Array": statusArray,
+      "tag array": tagArray,
+      "numberRequested": numberRequested,
+      "pageNumber": pageNumber,
+    })
+    const query = {
+      bool: {
+        must: [],
+        should: [],
+        filter: [],
       },
-    });
-  } //else {
-  //query.bool.must.push({
-  //	match_all: {},
-  //});
-  //}
+    };
 
-  // filter by status (always applied)
-  query.bool.filter.push({
-    terms: {
-      "status.keyword": statusArray,
-    },
-  });
+    // full-text match on name, description, etc.
+    if (searchQuery) {
+      query.bool.must.push({
+        multi_match: {
+          query: searchQuery,
+          fields: ["name", "description", "longDescription", "tags"],
+          fuzziness: "AUTO",
+        },
+      });
+    }
 
-  // filter by tags, if present and not ALL
-  if (tagArray.length > 0 && !tagArray.includes("ALL")) {
+    // filter by status
     query.bool.filter.push({
       terms: {
-        "tags.keyword": tagArray,
+        "status.keyword": statusArray,
       },
     });
-  }
-  console.log("query", JSON.stringify(query));
-  try {
-    const result = await elasticClient.search({
-      index: INDEX_NAME,
-      size: Number(numberRequested) || 10,
-      body: {
-        query: query,
-      },
-    });
-    console.log("result of query", result.body.hits);
-    const projects = result.body.hits.hits.map((hit) => ({
-      id: hit._id,
-      ...hit._source,
-      score: hit._score,
-    }));
 
-    projects.forEach((projectDetails) => {
-      console.log("logging from inside the proj", projectDetails);
-      projectDetails.pictureURL = toCDN(projectDetails.pictureURL);
-      projectDetails.carouselImage_1 = toCDN(projectDetails.carouselImage_1);
-      projectDetails.carouselImage_2 = toCDN(projectDetails.carouselImage_2);
-      projectDetails.carouselImage_3 = toCDN(projectDetails.carouselImage_3);
-    });
-    console.log("logging batch returned projects from ES", projects);
-    res.send(projects);
-  } catch (error) {
-    console.log("elastic search failed, in get", error);
-    res.send("get failed, elastic Search node down", 500);
+    // filter by tags, if present and not ALL
+    if (tagArray.length > 0 && !tagArray.includes("ALL")) {
+      query.bool.filter.push({
+        terms: {
+          "tags.keyword": tagArray,
+        },
+      });
+    }
+    try {
+      // https://github.com/opensearch-project/opensearch-js/blob/main/guides/search.md
+      const result = await elasticClient.search({
+        index: INDEX_NAME,
+        from: Number(pageNumber),
+        size: Number(numberRequested) || 10,
+        body: {
+          query: query,
+          sort: [
+            {
+              creationDate: {
+                order: "desc",
+              },
+              lastModified: {
+                order: "desc",
+              },
+            },
+          ],
+        },
+      });
+      const projects = result.body.hits.hits.map((hit) => ({
+        id: hit._id,
+        ...hit._source,
+        score: hit._score,
+      }));
+
+      projects.forEach((projectDetails) => {
+        projectDetails.pictureURL = toCDN(projectDetails.pictureURL);
+        projectDetails.carouselImage_1 = toCDN(projectDetails.carouselImage_1);
+        projectDetails.carouselImage_2 = toCDN(projectDetails.carouselImage_2);
+        projectDetails.carouselImage_3 = toCDN(projectDetails.carouselImage_3);
+      });
+      logger.info("query result", { "result": projects })
+
+      res.send({ projects: projects, totalHits: result.body.hits.total.value });
+    } catch (error) {
+      logger.error("elastic search failed, in get", { "error": error });
+      res.send("get failed, elastic Search node down").status(500);
+    }
   }
-});
+);
 
 /*
     Expected output strutcture:
     {
         longDescription: 'Website Showcasing the student organization, its members, events and projects, and resources for those interested in the club.\n' +
             'It is written in react and mostly uses Tailwind for styling. Does not have any app functionality or dedicated APIs as of yet, \n' +
-            'will most likely add a custom mailing list app to it for the club to use. Mostly focused on desiging and CSS on thisi project.\n' +
+            'well most likely add a custom mailing list app to it for the club to use. Mostly focused on desiging and CSS on thisi project.\n' +
             'Also if you are reading this please donate to the club through the venmo link it is much appreciated :)',
         status: 'Complete',
         githubURL: 'https://github.com/niknak1379/pasa-website',
@@ -168,8 +198,8 @@ app.get("/:name/:status/:tags/:numberRequested", async (req, res) => {
 */
 app.get("/projectDetails/:projectName", async (req, res) => {
   //const projectDetails = await getProjectDetails(req.params.projectName);
-  //console.log('logging project details from get project',projectDetails)
   try {
+    logger.info("getting project details for", { "project name": req.params.projectName })
     let { body: currentDoc } = await elasticClient.get({
       index: INDEX_NAME,
       id: req.params.projectName,
@@ -181,8 +211,10 @@ app.get("/projectDetails/:projectName", async (req, res) => {
     projectDetails.carouselImage_2 = toCDN(projectDetails.carouselImage_2);
     projectDetails.carouselImage_3 = toCDN(projectDetails.carouselImage_3);
 
+    logger.info("returned project details", { "project details": projectDetails })
     res.send(projectDetails);
   } catch (e) {
+    logger.error("get project details failed", { "error": e })
     res.send(e).status(500);
   }
 });
@@ -196,8 +228,8 @@ expected returned data format, array of JSON objects in the following format
     ]
 */
 app.get("/tags", async (req, res) => {
+  logger.info("getting all tags");
   const tags = await getAllTags();
-  console.log(tags);
   res.send(tags);
 });
 /*
@@ -210,21 +242,14 @@ expected returned data format, array of JSON objects in the following format
     ]
 */
 app.get("/status", async (req, res) => {
+  logger.info("getting all status");
   const status = await getAllStatus();
-  console.log(status);
   res.send(status);
-});
-
-const S3 = new S3Client({
-  region: process.env.S3_BUCKET_REGION,
-  credentials: {
-    accessKeyId: process.env.S3_ACCESS_KEY,
-    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
-  },
 });
 
 //need to also delete the s3 path of the project as well
 app.delete("/:projectName", validateTokenMiddleware, async (req, res) => {
+  logger.info("deleting project", { "name": req.params.projectName })
   const projectDetails = await getProjectDetails(req.params.projectName);
   if (projectDetails == null) {
     res.status(403).send("project not found");
@@ -248,18 +273,11 @@ app.delete("/:projectName", validateTokenMiddleware, async (req, res) => {
       },
     })
   );
-  console.log(s3message);
-  let deletedProject = await deleteProject(req.params.projectName);
-  console.log("logging deleted project", deletedProject);
+  logger.info("s3 delete result", { "res": s3message })
+  await deleteProject(req.params.projectName);
+  console.log("deleted project");
   res.status(201).send("ok");
 });
-
-const projectImageFields = upload.fields([
-  { name: "pictureURL" },
-  { name: "carouselImage_1" },
-  { name: "carouselImage_2" },
-  { name: "carouselImage_3" },
-]);
 
 /*
         projectObject returned as the req.body
@@ -291,15 +309,14 @@ app.put(
   validateTokenMiddleware,
   projectImageFields,
   async (req, res) => {
-    console.log("files", req.files);
-
+    logger.info("updating project", { "field": req.body })
     let filesArr = req.files
       ? [
-          req.files.pictureURL,
-          req.files.carouselImage_1,
-          req.files.carouselImage_2,
-          req.files.carouselImage_3,
-        ]
+        req.files.pictureURL,
+        req.files.carouselImage_1,
+        req.files.carouselImage_2,
+        req.files.carouselImage_3,
+      ]
       : [];
 
     let photoArr = [];
@@ -310,6 +327,10 @@ app.put(
     try {
       const config = {
         region: "us-east-2",
+        credentials: {
+          accessKeyId: process.env.S3_ACCESS_KEY,
+          secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+        },
       }; // type is LambdaClientConfig
       const client = new LambdaClient(config);
 
@@ -336,18 +357,16 @@ app.put(
         // it returns it in a Uint8ArrayBlobAdapter format so
         // has to be converted.
         const result = JSON.parse(Buffer.from(response.Payload).toString());
-        // console.log("result objects:", result, result.body);
-        // Store the S3 URL in req.body to be pased to the DB
         req.body[photo.fieldname] = JSON.parse(result.body).url;
 
-        console.log(`Uploaded ${photo.fieldname}:`, req.body[photo.fieldname]);
+        logger.info(`Uploaded ${photo.fieldname}:`);
       }
 
       // Update project after all images are processed
       await updateProject(req.body);
       res.send("Project updated successfully");
     } catch (error) {
-      console.log("Error:", error);
+      logger.error("Error in update project", { "error": error });
       res.status(500).send(`Error: ${error.message}`);
     }
   }
@@ -357,7 +376,7 @@ app.post(
   validateTokenMiddleware,
   projectImageFields,
   async (req, res) => {
-    console.log(req.files);
+    logger.info("adding new project", { "fields": req.body });
 
     let photoArr = [
       req.files.pictureURL[0],
@@ -369,6 +388,10 @@ app.post(
     try {
       const config = {
         region: "us-east-2",
+        credentials: {
+          accessKeyId: process.env.S3_ACCESS_KEY,
+          secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+        },
       }; // type is LambdaClientConfig
       const client = new LambdaClient(config);
 
@@ -403,11 +426,10 @@ app.post(
       }
 
       // Insert project after all images are processed
-      console.log("logging adding project", req.body);
       await insertProject(req.body);
       res.send("Project created successfully");
     } catch (error) {
-      console.log("Error:", error);
+      logger.error("Error in adding project", { "error": error });
       res.status(500).send(`Error: ${error.message}`);
     }
   }
@@ -422,5 +444,5 @@ app.get("/health", (req, res) => {
 });
 
 app.listen(8080, () => {
-  console.log("Server running on 8080");
+  logger.info("Server running on 8080");
 });
