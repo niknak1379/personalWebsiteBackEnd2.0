@@ -1,6 +1,7 @@
 import mysql from "mysql2";
 import dotenv from "dotenv";
 import elasticClient from "./elasticSearchClient.js";
+import logger from "./logger.js";
 
 dotenv.config();
 const INDEX_NAME = "projects";
