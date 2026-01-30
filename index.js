@@ -454,7 +454,7 @@ router.get("/health", (req, res) => {
 });
 
 app.listen(PORT, () => {
-	logger.info("Server running on" + PORT, {
+	logger.info("Server running on " + PORT, {
 		"prod env": process.env.PROD_ENV,
 	});
 });

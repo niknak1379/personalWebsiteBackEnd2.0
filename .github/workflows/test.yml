@@ -49,7 +49,7 @@ jobs:
           cat > .env << EOL
           # Port
           PORT=${{ secrets.PORT }}
-
+          PROD_ENV=${{ secrets.PROD_ENV }}
           # Database
           MYSQL_HOST=${{ secrets.MYSQL_HOST }}
           MYSQL_USER=${{ secrets.MYSQL_USER }}
