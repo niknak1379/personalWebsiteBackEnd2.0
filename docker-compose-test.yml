@@ -8,6 +8,7 @@ services:
     environment:
       # port
       - PORT=${PORT}
+
       # Database
       - MYSQL_HOST=${MYSQL_HOST}
       - MYSQL_USER=${MYSQL_USER}
