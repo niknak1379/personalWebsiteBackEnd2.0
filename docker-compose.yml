@@ -6,6 +6,7 @@ services:
     ports:
       - "8080:8080"
     environment:
+      - PORT=${PORT}
       # Database
       - MYSQL_HOST=${MYSQL_HOST}
       - MYSQL_USER=${MYSQL_USER}

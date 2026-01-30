@@ -47,8 +47,8 @@ jobs:
       - name: Create .env file
         run: |
           cat > .env << EOL
-          NODE_ENV=production
-          PORT=8080
+          # Port
+          PORT=${{ secrets.PORT }}
 
           # Database
           MYSQL_HOST=${{ secrets.MYSQL_HOST }}

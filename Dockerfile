@@ -12,8 +12,7 @@ RUN npm install --no-package-lock
 COPY . .
 
 # Expose port 8080 & 12345
-EXPOSE 12345
-EXPOSE 8080
+EXPOSE 8080 12345
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
