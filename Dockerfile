@@ -11,7 +11,8 @@ RUN npm install --no-package-lock
 # Copy application code
 COPY . .
 
-# Expose port 8080
+# Expose port 8080 & 12345
+EXPOSE 12345
 EXPOSE 8080
 
 # Health check
