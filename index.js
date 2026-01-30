@@ -19,6 +19,7 @@ import logger from "./logger.js";
 import elasticClient from "./elasticSearchClient.js";
 const PORT = process.env.PORT;
 const app = express();
+const router = express.Router();
 const storage = multer.memoryStorage();
 const upload = multer(
 	{ storage: storage },
