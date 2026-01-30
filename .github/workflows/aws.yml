@@ -3,12 +3,12 @@ name: Deploy Docker Image to EC2
 on:
   push:
     branches:
-      - main
+      - [main, test]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: .env
+    environment: ${{ github.ref == 'refs/heads/main' && '.env' || 'test' }}   
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5

@@ -17,6 +17,7 @@ import { DeleteObjectsCommand, S3Client } from "@aws-sdk/client-s3";
 import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
 import logger from "./logger.js"
 import elasticClient from "./elasticSearchClient.js";
+const PORT = process.env.PORT
 const app = express();
 const storage = multer.memoryStorage();
 const upload = multer(
@@ -443,6 +444,6 @@ app.get("/health", (req, res) => {
   });
 });
 
-app.listen(8080, () => {
+app.listen(PORT, () => {
   logger.info("Server running on 8080");
 });
