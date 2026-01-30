@@ -4,7 +4,7 @@ services:
     container_name: PWB_TEST
     restart: unless-stopped
     ports:
-      - "12345:12345"
+      - "12344:12344"
     environment:
       # port
       - PORT=${PORT}
