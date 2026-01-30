@@ -40,6 +40,7 @@ app.use(express.json());
   ); */
 var corsOptions = {
 	origin: [
+		"*",
 		"http://localhost:3000",
 		"http://localhost:80",
 		"https://www.nikanostovan.dev",
