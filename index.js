@@ -25,6 +25,9 @@ const upload = multer(
 	{ limits: { fileSize: 5 * 1024 * 1024 } },
 ); // 5MB limit);
 const INDEX_NAME = "projects";
+const ENV = process.env.PROD_ENV || "prod";
+const prefix = ENV === "test" ? "/test" : "";
+app.use(prefix, router);
 app.use("/", auth);
 app.use(express.json());
 /* app.use(
@@ -81,7 +84,7 @@ expected returned data format, array of JSON objects in the following format
     }
     ]
 */
-app.get(
+router.get(
 	"/:name/:status/:tags/:numberRequested/:pageNumber",
 	async (req, res) => {
 		//send in space for an empty paramter
@@ -198,7 +201,7 @@ app.get(
         tags: [ 'ALL', 'React', 'Tailwind', 'FrontEnd' ]
     }
 */
-app.get("/projectDetails/:projectName", async (req, res) => {
+router.get("/projectDetails/:projectName", async (req, res) => {
 	//const projectDetails = await getProjectDetails(req.params.projectName);
 	try {
 		logger.info("getting project details for", {
@@ -233,7 +236,7 @@ expected returned data format, array of JSON objects in the following format
     }
     ]
 */
-app.get("/tags", async (req, res) => {
+router.get("/tags", async (req, res) => {
 	logger.info("getting all tags");
 	const tags = await getAllTags();
 	res.send(tags);
@@ -247,14 +250,14 @@ expected returned data format, array of JSON objects in the following format
     }
     ]
 */
-app.get("/status", async (req, res) => {
+router.get("/status", async (req, res) => {
 	logger.info("getting all status");
 	const status = await getAllStatus();
 	res.send(status);
 });
 
 //need to also delete the s3 path of the project as well
-app.delete("/:projectName", validateTokenMiddleware, async (req, res) => {
+router.delete("/:projectName", validateTokenMiddleware, async (req, res) => {
 	logger.info("deleting project", { name: req.params.projectName });
 	const projectDetails = await getProjectDetails(req.params.projectName);
 	if (projectDetails == null) {
@@ -310,7 +313,7 @@ app.delete("/:projectName", validateTokenMiddleware, async (req, res) => {
             size: 876
         }
     */
-app.put(
+router.put(
 	"/editProject",
 	validateTokenMiddleware,
 	projectImageFields,
@@ -377,7 +380,7 @@ app.put(
 		}
 	},
 );
-app.post(
+router.post(
 	"/newProject",
 	validateTokenMiddleware,
 	projectImageFields,
@@ -441,7 +444,7 @@ app.post(
 	},
 );
 
-app.get("/health", (req, res) => {
+router.get("/health", (req, res) => {
 	res.status(200).json({
 		status: "healthy",
 		timestamp: new Date().toISOString(),
