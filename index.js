@@ -28,8 +28,7 @@ const upload = multer(
 const INDEX_NAME = "projects";
 const ENV = process.env.PROD_ENV || "prod";
 const prefix = ENV === "test" ? "/test" : "";
-app.use(prefix, router);
-app.use("/", auth);
+
 app.use(express.json());
 /* app.use(
     sanitizer.clean({
@@ -50,7 +49,8 @@ var corsOptions = {
 	credentials: true,
 };
 app.use(cors(corsOptions));
-
+app.use(prefix, router);
+app.use("/", auth);
 app.use(cookieParser());
 app.use((err, req, res, next) => {
 	logger.error("Error Sth Crashed", { error: err.stack });
