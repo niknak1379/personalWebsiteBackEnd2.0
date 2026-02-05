@@ -7,7 +7,7 @@ import {
 	deleteProject,
 	updateProject,
 	toCDN,
-} from "./database.js";
+} from "../database.js";
 import { validateTokenMiddleware } from "./Routes/authentication.js";
 import cors from "cors";
 import multer from "multer";
@@ -16,7 +16,7 @@ import auth from "./Routes/authentication.js";
 import { DeleteObjectsCommand, S3Client } from "@aws-sdk/client-s3";
 import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
 import logger from "./logger.js";
-import elasticClient from "./elasticSearchClient.js";
+import elasticClient from "../elasticSearchClient.js";
 const PORT = process.env.PORT;
 const app = express();
 const router = express.Router();

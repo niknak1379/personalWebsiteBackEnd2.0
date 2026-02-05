@@ -1,32 +1,47 @@
 {
-  "name": "server",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "type": "module",
-  "scripts": {
-    "dev": "doppler run -- npx nodemon index.js",
-    "debug": "npx nodemon --inspect --trace-warnings index.js"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "@aws-sdk/client-lambda": "^3.940.0",
-    "@aws-sdk/client-s3": "^3.787.0",
-    "@opensearch-project/opensearch": "^3.5.1",
-    "bcrypt": "^5.1.1",
-    "cookie-parser": "^1.4.7",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "jsonwebtoken": "^9.0.2",
-    "multer": "^1.4.5-lts.2",
-    "mysql2": "^3.12.0",
-    "nodemon": "^3.1.9",
-    "passport": "^0.7.0",
-    "passport-google-oauth20": "^2.0.0",
-    "perfect-express-sanitizer": "^2.0.2",
-    "winston": "^3.19.0"
-  }
+	"name": "server",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
+	"type": "module",
+	"scripts": {
+		"build": "tsc",
+		"dev": "doppler run -- nodemon --exec ts-node src/index.ts",
+		"start": "doppler run -- node dist/index.js"
+	},
+	"nodemonConfig": {
+		"watch": [
+			"src"
+		],
+		"ext": "ts",
+		"ignore": [
+			"src/**/*.test.ts"
+		],
+		"delay": 500
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"dependencies": {
+		"@aws-sdk/client-lambda": "^3.940.0",
+		"@aws-sdk/client-s3": "^3.787.0",
+		"@opensearch-project/opensearch": "^3.5.1",
+		"bcrypt": "^5.1.1",
+		"cookie-parser": "^1.4.7",
+		"cors": "^2.8.5",
+		"dotenv": "^16.4.7",
+		"express": "^4.21.2",
+		"jsonwebtoken": "^9.0.2",
+		"multer": "^1.4.5-lts.2",
+		"mysql2": "^3.12.0",
+		"nodemon": "^3.1.9",
+		"passport": "^0.7.0",
+		"passport-google-oauth20": "^2.0.0",
+		"perfect-express-sanitizer": "^2.0.2",
+		"winston": "^3.19.0"
+	},
+	"devDependencies": {
+		"@types/node": "^25.2.0",
+		"typescript": "^5.9.3"
+	}
 }
